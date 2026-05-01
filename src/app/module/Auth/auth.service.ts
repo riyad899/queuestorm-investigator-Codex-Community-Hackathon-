@@ -60,13 +60,11 @@ const register = async (payload: IRegisterCustomerPayload, requestHeaders: Incom
     throw new AppError("Address cannot be empty", status.BAD_REQUEST);
   }
 
-  const response = await auth.api.signUpEmail({
+  const data = await auth.api.signUpEmail({
     body: { name, email, password },
     headers: fromNodeHeaders(requestHeaders),
-    asResponse: true,
-  } as any) as Response;
+  } as any) as any;
 
-  const data = await response.json();
   if (!data?.user) {
     throw new AppError("Failed to create user", status.INTERNAL_SERVER_ERROR);
   }

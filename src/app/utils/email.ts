@@ -14,7 +14,10 @@ const transporter = nodemailer.createTransport({
         user: envVars.EMAIL_SENDER.SMTP_USER,
         pass: envVars.EMAIL_SENDER.SMTP_PASS
     },
-    port: Number(envVars.EMAIL_SENDER.SMTP_PORT)
+    port: Number(envVars.EMAIL_SENDER.SMTP_PORT),
+    connectionTimeout: 3_000,
+    greetingTimeout: 3_000,
+    socketTimeout: 3_000,
 })
 
 interface SendEmailOptions {
@@ -37,7 +40,7 @@ export const sendEmail = async ({subject, templateData, templateName, to, attach
 
         const html = await ejs.renderFile(templatePath, templateData);
 
-        const info = await transporter.sendMail({
+        const sendMailPromise = transporter.sendMail({
             from: envVars.EMAIL_SENDER.SMTP_FROM,
             to : to,
             subject : subject,
@@ -49,9 +52,15 @@ export const sendEmail = async ({subject, templateData, templateName, to, attach
             }))
         })
 
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new AppError("Email sending timed out", status.GATEWAY_TIMEOUT)), 3_000);
+        });
+
+        const info = await Promise.race([sendMailPromise, timeoutPromise]) as Awaited<typeof sendMailPromise>;
+
         console.log(`Email sent to ${to} : ${info.messageId}`);
     } catch (error : any) {
         console.log("Email Sending Error", error.message);
-        throw new AppError("Failed to send email",status.INTERNAL_SERVER_ERROR);
+        return;
     }
 }
