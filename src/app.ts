@@ -30,7 +30,7 @@ app.use(cors({
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
-    message: 'QuickLearner API is running',
+    message: 'E-Commerce API is running',
     version: '1.0.0',
     docs: '/api/v1',
   });

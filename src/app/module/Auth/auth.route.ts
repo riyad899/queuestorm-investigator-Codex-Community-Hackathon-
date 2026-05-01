@@ -6,16 +6,16 @@ import {
 	forgetPasswordZodSchema,
 	loginUserZodSchema,
 	resetPasswordZodSchema,
-	registerStudentZodSchema,
-	updateStudentZodSchema,
+	registerCustomerZodSchema,
+	updateCustomerZodSchema,
 	verifyEmailZodSchema,
 } from "./auth.validation.js";
 
 const router = Router();
 
-router.post("/regsiter", validateZodSchema(registerStudentZodSchema), AuthController.register);
+router.post("/register", validateZodSchema(registerCustomerZodSchema), AuthController.register);
 router.post("/login", validateZodSchema(loginUserZodSchema), AuthController.LoginUser);
-router.patch("/student/:id", validateZodSchema(updateStudentZodSchema), AuthController.updateStudent);
+router.patch("/customer/:id", validateZodSchema(updateCustomerZodSchema), AuthController.updateCustomer);
 router.get("/me", checkAuth(), AuthController.getMe);
 router.post("/refresh-token", AuthController.getNewToken);
 router.post("/change-password", AuthController.changePassword);
@@ -23,7 +23,6 @@ router.post("/logout", AuthController.logoutUser);
 router.post("/verify-email", validateZodSchema(verifyEmailZodSchema), AuthController.verifyEmail);
 router.post("/forget-password", validateZodSchema(forgetPasswordZodSchema), AuthController.forgetPassword);
 router.post("/reset-password", validateZodSchema(resetPasswordZodSchema), AuthController.resetPassword);
-
 
 router.get("/login/google", AuthController.googleLogin);
 router.get("/google/success", AuthController.googleLoginSuccess);

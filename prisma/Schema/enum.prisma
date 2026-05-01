@@ -1,6 +1,6 @@
 enum Role {
-  STUDENT
-  INSTRUCTOR
+  STAFF
+  CUSTOMER
     SUPER_ADMIN
   ADMIN
 }
@@ -13,5 +13,5 @@ enum userStatus {
 
 enum GENDER {
     MALE
-    Female
+    FEMALE
 }

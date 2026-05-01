@@ -3,7 +3,7 @@ import z from "zod";
 const strongPasswordRegex =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
 
-export const registerStudentZodSchema = z.object({
+export const registerCustomerZodSchema = z.object({
   name: z
     .string({ error: "Name is required" })
     .min(2, "Name must be at least 2 characters long")
@@ -27,7 +27,7 @@ export const loginUserZodSchema = z.object({
   password: z.string({ error: "Password is required" }).min(1, "Password is required"),
 });
 
-export const updateStudentZodSchema = z
+export const updateCustomerZodSchema = z
   .object({
     name: z.string().min(2, "Name must be at least 2 characters long").max(50, "Name must be less than 50 characters long").optional(),
     email: z.string().email("Invalid email format").optional(),
@@ -37,7 +37,7 @@ export const updateStudentZodSchema = z
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, {
-    message: "At least one student field is required for update",
+    message: "At least one customer field is required for update",
   });
 
 export const verifyEmailZodSchema = z.object({
