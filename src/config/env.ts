@@ -46,6 +46,8 @@ interface EnvConfig {
 const LoadEnvVarialbes = (): EnvConfig => {
     const requiredEnvVars = [
         "NODE_ENV",
+
+        "PORT",
         "DATABASE_URL",
         "BETTER_AUTH_SECRET",
         "BETTER_AUTH_URL",
