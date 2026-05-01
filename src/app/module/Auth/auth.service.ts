@@ -51,7 +51,6 @@ const ensureNotGoogleUserByEmail = async (email: string) => {
 };
 
 const register = async (payload: IRegisterCustomerPayload, requestHeaders: IncomingHttpHeaders) => {
-  console.log('[AUTH_SERVICE] register() started');
   const { name, email, password, age, address, contact } = payload;
 
   if (age !== undefined && (!Number.isInteger(age) || age <= 0)) {
@@ -61,21 +60,17 @@ const register = async (payload: IRegisterCustomerPayload, requestHeaders: Incom
     throw new AppError("Address cannot be empty", status.BAD_REQUEST);
   }
 
-  console.log('[AUTH_SERVICE] Calling auth.api.signUpEmail...');
   const data = await auth.api.signUpEmail({
     body: { name, email, password },
     headers: fromNodeHeaders(requestHeaders),
   } as any) as any;
 
-  console.log('[AUTH_SERVICE] auth.api.signUpEmail completed', { userId: data?.user?.id });
   if (!data?.user) {
     throw new AppError("Failed to create user", status.INTERNAL_SERVER_ERROR);
   }
 
-  console.log('[AUTH_SERVICE] Starting Prisma transaction for customer creation...');
   try {
     const customer = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      console.log('[AUTH_SERVICE] Inside transaction: creating customer...');
       return tx.customer.create({
         data: {
           name,
@@ -87,7 +82,6 @@ const register = async (payload: IRegisterCustomerPayload, requestHeaders: Incom
         },
       });
     });
-    console.log('[AUTH_SERVICE] Customer created successfully', { customerId: customer.id });
 
     const accessToken = tokenUtils.getAccessToken({
       userId: data.user.id, email: data.user.email, role: data.user.role,
@@ -98,21 +92,16 @@ const register = async (payload: IRegisterCustomerPayload, requestHeaders: Incom
       status: data.user.status, isDeleted: data.user.isdeleted, emailVerified: data.user.emailVerified,
     });
 
-    console.log('[AUTH_SERVICE] register() completed successfully');
     return { data: { ...data, customer, accessToken, refreshToken } };
-  } catch (error) {
-    console.error('[AUTH_SERVICE] Transaction failed:', error);
+  } catch {
     await prisma.user.delete({ where: { id: data.user.id } }).catch(() => undefined);
     throw new AppError("Failed to create customer profile", status.INTERNAL_SERVER_ERROR);
   }
 };
 
 const LoginUser = async (payload: ILoginUserPayload) => {
-  console.log('[AUTH_SERVICE] LoginUser() started', { email: payload.email });
   const { email, password } = payload;
-  console.log('[AUTH_SERVICE] Calling auth.api.signInEmail...');
   const data = await auth.api.signInEmail({ body: { email, password } });
-  console.log('[AUTH_SERVICE] auth.api.signInEmail completed', { userId: data?.user?.id });
 
   if (!data?.user) throw new AppError("Failed to login user", status.UNAUTHORIZED);
   if (data.user.status === userStatus.INACTIVE) throw new AppError("User account is inactive. Please contact support.", status.FORBIDDEN);

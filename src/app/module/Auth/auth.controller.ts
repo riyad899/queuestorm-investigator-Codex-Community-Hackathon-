@@ -10,9 +10,7 @@ import { envVars } from "../../../config/env.js";
 import { auth } from "../../lib/auth.js";
 
 const register = catchAsync(async (req, res) => {
-  console.log('[REGISTER] API hit', { email: req.body.email, timestamp: new Date().toISOString() });
   const { name, email, password, age, address, contact } = req.body;
-  console.log('[REGISTER] Calling authService.register...');
   const result = await authService.register(
     {
       name,
@@ -24,7 +22,6 @@ const register = catchAsync(async (req, res) => {
     },
     req.headers
   );
-  console.log('[REGISTER] authService.register completed', { userId: result.data?.user?.id });
   const { accessToken, refreshToken, token } = result.data;
 
   tokenUtils.setAccessTokenCookie(res, accessToken);
@@ -43,11 +40,8 @@ const register = catchAsync(async (req, res) => {
 });
 
 const LoginUser = catchAsync(async (req, res) => {
-  console.log('[LOGIN] API hit', { email: req.body.email, timestamp: new Date().toISOString() });
   const payload = req.body;
-  console.log('[LOGIN] Calling authService.LoginUser...');
   const result = await authService.LoginUser(payload);
-  console.log('[LOGIN] authService.LoginUser completed', { userId: result?.user?.id });
   const { accessToken, refreshToken, token, ...rest } = result;
 
   tokenUtils.setAccessTokenCookie(res, accessToken);

@@ -5,12 +5,6 @@ import { PrismaClient } from "@prisma/client";
 const connectionString = `${process.env.DATABASE_URL}`;
 
 const adapter = new PrismaPg({ connectionString });
-
-const prisma = new PrismaClient({ 
-  adapter,
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-});
-
-console.log('[PRISMA] Initialized with connection string:', connectionString?.substring(0, 30) + '...');
+const prisma = new PrismaClient({ adapter });
 
 export { prisma };
