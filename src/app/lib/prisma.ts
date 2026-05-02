@@ -6,8 +6,6 @@ const connectionString = `${process.env.DATABASE_URL}`;
 
 const adapter = new PrismaPg({ 
   connectionString,
-  // Connection pooling settings for serverless
-  maxConnections: 1,
 });
 
 let prisma: PrismaClient;
