@@ -34,7 +34,7 @@ const register = catchAsync(async (req, res) => {
   sendResponse(res, {
     httpStatus: status.CREATED,
     success: true,
-    message: "Customer registered successfully",
+    message: "User registered successfully",
     data: result.data,
   });
 });
@@ -133,8 +133,8 @@ const logoutUser = catchAsync(async (req: Request, res: Response) => {
 
 const forgetPassword = catchAsync(async (req: Request, res: Response) => {
   const { email } = req.body;
-  await authService.forgetPassword(email);
-  sendResponse(res, { httpStatus: status.OK, success: true, message: "Password reset OTP sent to email successfully" });
+  const result = await authService.forgetPassword(email);
+  sendResponse(res, { httpStatus: status.OK, success: true, message: "Password reset OTP sent to email successfully", data: result });
 });
 
 const resetPassword = catchAsync(async (req: Request, res: Response) => {
@@ -143,16 +143,14 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, { httpStatus: status.OK, success: true, message: "Password reset successfully" });
 });
 
-// /api/v1/auth/login/google?redirect=/profile
+// /api/v1/auth/login/google
 const googleLogin = catchAsync((req: Request, res: Response) => {
-  const redirectPath = req.query.redirect || "/dashboard";
-  const encodedRedirectPath = encodeURIComponent(redirectPath as string);
+  const encodedRedirectPath = encodeURIComponent("/");
   const callbackURL = `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success?redirect=${encodedRedirectPath}`;
   res.render("googleRedirect", { callbackURL, betterAuthUrl: envVars.BETTER_AUTH_URL });
 });
 
 const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
-  const redirectPath = req.query.redirect as string || "/dashboard";
   const sessionToken = req.cookies["better-auth.session_token"];
 
   if (!sessionToken) return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_failed`);
@@ -170,9 +168,7 @@ const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
   tokenUtils.setAccessTokenCookie(res, accessToken);
   tokenUtils.setRefreshTokenCookie(res, refreshToken);
 
-  const isValidRedirectPath = redirectPath.startsWith("/") && !redirectPath.startsWith("//");
-  const finalRedirectPath = isValidRedirectPath ? redirectPath : "/dashboard";
-  res.redirect(`${envVars.FRONTEND_URL}${finalRedirectPath}`);
+  res.redirect(`${envVars.FRONTEND_URL}/`);
 });
 
 const handleOAuthError = catchAsync((req: Request, res: Response) => {
@@ -180,7 +176,30 @@ const handleOAuthError = catchAsync((req: Request, res: Response) => {
   res.redirect(`${envVars.FRONTEND_URL}/login?error=${error}`);
 });
 
+const requestEmailVerificationOTP = catchAsync(async (req: Request, res: Response) => {
+  const { email } = req.body;
+  const result = await authService.requestEmailVerificationOTP(email);
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "OTP generated successfully",
+    data: result,
+  });
+});
+
+const requestPasswordResetOTP = catchAsync(async (req: Request, res: Response) => {
+  const { email } = req.body;
+  const result = await authService.requestPasswordResetOTPDirect(email);
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "OTP generated successfully",
+    data: result,
+  });
+});
+
 export const AuthController = {
   register, LoginUser, updateCustomer, getMe, getNewToken, changePassword,
   logoutUser, verifyEmail, forgetPassword, resetPassword, googleLogin, googleLoginSuccess, handleOAuthError,
+  requestEmailVerificationOTP, requestPasswordResetOTP,
 };

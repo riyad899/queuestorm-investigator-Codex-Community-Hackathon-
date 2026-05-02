@@ -23,6 +23,8 @@ router.post("/logout", AuthController.logoutUser);
 router.post("/verify-email", validateZodSchema(verifyEmailZodSchema), AuthController.verifyEmail);
 router.post("/forget-password", validateZodSchema(forgetPasswordZodSchema), AuthController.forgetPassword);
 router.post("/reset-password", validateZodSchema(resetPasswordZodSchema), AuthController.resetPassword);
+router.post("/request-email-otp", validateZodSchema(forgetPasswordZodSchema), AuthController.requestEmailVerificationOTP);
+router.post("/request-password-reset-otp", validateZodSchema(forgetPasswordZodSchema), AuthController.requestPasswordResetOTP);
 
 router.get("/login/google", AuthController.googleLogin);
 router.get("/google/success", AuthController.googleLoginSuccess);

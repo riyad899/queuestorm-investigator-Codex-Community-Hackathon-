@@ -1,4 +1,3 @@
-
 import { auth } from "../../lib/auth.js";
 import { fromNodeHeaders } from "better-auth/node";
 import { IncomingHttpHeaders } from "http";
@@ -11,6 +10,9 @@ import { IchanegPasswordPayload } from "./auth.interface.js";
 import { jwtUtils } from "../../utils/jwt.js";
 import { envVars } from "../../../config/env.js";
 import { JwtPayload } from "jsonwebtoken";
+import { otpUtils } from "../../utils/otp.js";
+import { sendEmail } from "../../utils/email.js";
+import crypto from "crypto";
 
 interface IRegisterCustomerPayload {
   name: string;
@@ -212,12 +214,85 @@ const logoutUser = async (sessionToken: string) => {
   return await auth.api.signOut({ headers: new Headers({ Authorization: `Bearer ${sessionToken}` }) });
 };
 
+// Generate OTP and save to database
+const generateAndSaveOTP = async (email: string, expiryMinutes: number = 10) => {
+  const otp = otpUtils.generateOTP();
+  const otpExpiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
+  
+  console.log("🔐 [OTP GENERATION] Email:", email);
+  console.log("🔐 [OTP GENERATION] Generated OTP:", otp);
+  
+  // Save OTP to database
+  await prisma.user.update({
+    where: { email },
+    data: { otp, otpExpiresAt },
+  });
+  
+  console.log("🔐 [OTP GENERATION] Saved to database successfully");
+  
+  return otp;
+};
+
+// Verify OTP from database
+const verifyOTPFromDatabase = async (email: string, otp: string): Promise<boolean> => {
+  console.log("\n🔍 [OTP VERIFICATION START]");
+  console.log("🔍 Email:", email);
+  console.log("🔍 Input OTP:", otp);
+  
+  const user = await prisma.user.findUnique({ where: { email } });
+  
+  if (!user) {
+    throw new AppError("User not found", status.NOT_FOUND);
+  }
+  
+  if (!user.otp) {
+    throw new AppError("OTP not found or expired", status.BAD_REQUEST);
+  }
+  
+  if (user.otpExpiresAt && user.otpExpiresAt < new Date()) {
+    console.log("❌ OTP has expired");
+    await prisma.user.update({
+      where: { email },
+      data: { otp: null, otpExpiresAt: null },
+    });
+    throw new AppError("OTP has expired", status.BAD_REQUEST);
+  }
+  
+  // Convert both to numbers for comparison
+  const inputOTPNumber = parseInt((otp || "").trim(), 10);
+  const storedOTPNumber = parseInt((user.otp || "").trim(), 10);
+  
+  console.log("\n🔍 [COMPARISON AS NUMBERS]");
+  console.log("🔍 Input OTP Number:", inputOTPNumber);
+  console.log("🔍 Stored OTP Number:", storedOTPNumber);
+  console.log("Match Result:", storedOTPNumber === inputOTPNumber);
+  
+  if (isNaN(inputOTPNumber) || isNaN(storedOTPNumber)) {
+    throw new AppError("Invalid OTP format", status.BAD_REQUEST);
+  }
+  
+  if (storedOTPNumber !== inputOTPNumber) {
+    console.log("❌ OTP MISMATCH!");
+    throw new AppError("Invalid OTP", status.BAD_REQUEST);
+  }
+  
+  console.log("✅ OTP MATCH! Clearing from database...");
+  
+  // Clear OTP after successful verification
+  await prisma.user.update({
+    where: { email },
+    data: { otp: null, otpExpiresAt: null },
+  });
+  
+  console.log("✅ OTP cleared from database\n");
+  
+  return true;
+};
+
 const verifyEmail = async (email: string, otp: string) => {
   await ensureNotGoogleUserByEmail(email);
-  const result = await auth.api.verifyEmailOTP({ body: { email, otp } });
-  if (result.status && !result.user.emailVerified) {
-    await prisma.user.update({ where: { email }, data: { emailVerified: true } });
-  }
+  await verifyOTPFromDatabase(email, otp);
+  await prisma.user.update({ where: { email }, data: { emailVerified: true } });
 };
 
 const forgetPassword = async (email: string) => {
@@ -227,7 +302,26 @@ const forgetPassword = async (email: string) => {
   if (!isUserExist) throw new AppError("User not found", status.NOT_FOUND);
   if (!isUserExist.emailVerified) throw new AppError("Email not verified", status.BAD_REQUEST);
   if (isUserExist.isdeleted || isUserExist.status === userStatus.DELETED) throw new AppError("User not found", status.NOT_FOUND);
-  await auth.api.requestPasswordResetEmailOTP({ body: { email } });
+
+  const otp = await generateAndSaveOTP(email);
+
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await prisma.verification.create({
+    data: { id: crypto.randomUUID(), identifier: email, value: otp, expiresAt },
+  });
+
+  // Send simple text email - Frontend handles template display
+  void sendEmail({
+    to: email,
+    subject: "Password Reset OTP",
+    text: `Your password reset OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`,
+  });
+
+  if (envVars.NODE_ENV === "production") {
+    return { email, message: "Password reset OTP sent to email successfully" };
+  }
+
+  return { otp, email, message: "Password reset OTP generated successfully. Use this OTP to reset your password." };
 };
 
 const resetPassword = async (email: string, otp: string, newPassword: string) => {
@@ -240,6 +334,8 @@ const resetPassword = async (email: string, otp: string, newPassword: string) =>
   if (!isUserExist) throw new AppError("User not found", status.NOT_FOUND);
   if (!isUserExist.emailVerified) throw new AppError("Email not verified", status.BAD_REQUEST);
   if (isUserExist.isdeleted || isUserExist.status === userStatus.DELETED) throw new AppError("User not found", status.NOT_FOUND);
+
+  await verifyOTPFromDatabase(email, otp);
 
   await auth.api.resetPasswordEmailOTP({ body: { email, otp, password: newPassword } });
 
@@ -260,7 +356,47 @@ const googleLoginSuccess = async (session: Record<string, any>) => {
   return { accessToken, refreshToken };
 };
 
+const requestEmailVerificationOTP = async (email: string) => {
+  if (!email || !email.trim()) throw new AppError("Email is required", status.BAD_REQUEST);
+  const isUserExist = await prisma.user.findUnique({ where: { email } });
+  if (!isUserExist) throw new AppError("User not found", status.NOT_FOUND);
+  if (isUserExist.emailVerified) throw new AppError("Email is already verified", status.BAD_REQUEST);
+  if (isUserExist.isdeleted || isUserExist.status === userStatus.DELETED) throw new AppError("User not found", status.NOT_FOUND);
+
+  const otp = await generateAndSaveOTP(email);
+
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await prisma.verification.create({ data: { id: crypto.randomUUID(), identifier: email, value: otp, expiresAt } });
+
+  // Send simple text email - Frontend handles template display
+  void sendEmail({ 
+    to: email, 
+    subject: "Verify your email",
+    text: `Your email verification OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`
+  });
+
+  if (envVars.NODE_ENV === "production") {
+    return { email, message: "OTP sent to email for verification" };
+  }
+
+  return { otp, email, message: "OTP generated successfully. Use this OTP to verify your email. (Valid for 10 minutes)" };
+};
+
+const requestPasswordResetOTPDirect = async (email: string) => {
+  if (!email || !email.trim()) throw new AppError("Email is required", status.BAD_REQUEST);
+  await ensureNotGoogleUserByEmail(email);
+  const isUserExist = await prisma.user.findUnique({ where: { email } });
+  if (!isUserExist) throw new AppError("User not found", status.NOT_FOUND);
+  if (!isUserExist.emailVerified) throw new AppError("Email not verified", status.BAD_REQUEST);
+  if (isUserExist.isdeleted || isUserExist.status === userStatus.DELETED) throw new AppError("User not found", status.NOT_FOUND);
+
+  const otp = await generateAndSaveOTP(email);
+
+  return { otp, email, message: "Password reset OTP generated. Use this OTP to reset your password." };
+};
+
 export const authService = {
   register, LoginUser, updateCustomer, changePassword, getNewToken, getMe,
   logoutUser, verifyEmail, forgetPassword, resetPassword, googleLoginSuccess,
+  requestEmailVerificationOTP, requestPasswordResetOTPDirect,
 };

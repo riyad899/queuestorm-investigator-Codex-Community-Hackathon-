@@ -96,11 +96,7 @@ export const auth = betterAuth({
                     void sendEmail({
                         to : email,
                         subject : "Verify your email",
-                        templateName : "otp",
-                        templateData :{
-                            name : user.name,
-                            otp,
-                        }
+                        text : `Hi ${user.name},\n\nYour email verification OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.\n\nPlease use this code to verify your email address.`
                     })
                   }
                 }else if(type === "forget-password"){
@@ -114,11 +110,7 @@ export const auth = betterAuth({
                         void sendEmail({
                             to : email,
                             subject : "Password Reset OTP",
-                            templateName : "otp",
-                            templateData :{
-                                name : user.name,
-                                otp,
-                            }
+                            text : `Hi ${user.name},\n\nYour password reset OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.\n\nPlease use this code to reset your password.`
                         })
                     }
                 }
