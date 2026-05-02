@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: quicklearner-api
+    env: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    autoDeploy: true
+    healthCheckPath: /

@@ -49,6 +49,21 @@ PORT=8000
 DATABASE_URL="postgres://username:password@host:5432/dbname?sslmode=require"
 BETTER_AUTH_SECRET=your_secret_here
 BETTER_AUTH_URL=http://localhost:8000
+ACCESS_TOKEN_SECRET=your_access_token_secret
+REFRESH_TOKEN_SECRET=your_refresh_token_secret
+ACCESS_TOKEN_EXPIRES_IN=15m
+REFRESH_TOKEN_EXPIRES_IN=30d
+FRONTEND_URL=http://localhost:3000
+BETTER_AUTH_SESSION_EXPIRES_IN=30d
+BETTER_AUTH_SEASSION_UPDATE_AGE=24h
+EMAIL_SENDER_SMTP_USER=your_smtp_user
+EMAIL_SENDER_SMTP_PASS=your_smtp_pass
+EMAIL_SENDER_SMTP_HOST=your_smtp_host
+EMAIL_SENDER_SMTP_PORT=587
+EMAIL_SENDER_SMTP_FROM=no-reply@example.com
+Google_Client_ID=your_google_client_id
+Google_Client_Secret=your_google_client_secret
+Google_callbackURL=http://localhost:8000/api/auth/callback/google
 ```
 
 ## Install & Run
@@ -80,6 +95,25 @@ npm run studio
 ```
 
 If `prisma` is not installed globally, always use `npx prisma ...`.
+
+## Deploying to Render
+
+This project is ready to deploy on Render as a Node.js web service.
+
+1. Create a new Render **Web Service** from this repository.
+2. Use these build settings:
+	- **Build command:** `npm ci && npm run build`
+	- **Start command:** `npm start`
+3. Add the required environment variables in Render.
+	- Render sets `PORT` automatically, so do not add it manually.
+	- Set `NODE_ENV=production`.
+	- Set `DATABASE_URL` to your Render PostgreSQL connection string or another hosted Postgres URL.
+	- Set `BETTER_AUTH_URL` to your public Render service URL, for example `https://your-service.onrender.com`.
+	- Set `FRONTEND_URL` to your deployed frontend URL.
+	- Add the remaining secrets from the environment variable list above.
+4. If you are using Google login or SMTP, add those credentials before the first deploy.
+
+Optional `render.yaml` is included in the repository so you can deploy with Render Blueprints.
 
 ## API Routes
 

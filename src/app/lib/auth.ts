@@ -15,7 +15,7 @@ export const auth = betterAuth({
     }),
     emailAndPassword:{
         enabled: true,
-        requireEmailVerification: false, // Changed to false for faster testing
+        requireEmailVerification:true,
     },
       socialProviders:{
         google:{
@@ -92,9 +92,8 @@ export const auth = betterAuth({
                     return;
                    }
 
-                   if (user && !user.emailVerified){
-                    // Fire and forget - don't await email sending
-                    sendEmail({
+                    if (user && !user.emailVerified){
+                    void sendEmail({
                         to : email,
                         subject : "Verify your email",
                         templateName : "otp",
@@ -102,9 +101,7 @@ export const auth = betterAuth({
                             name : user.name,
                             otp,
                         }
-                    }).catch((err) => {
-                      console.error("Failed to send verification OTP:", err);
-                    });
+                    })
                   }
                 }else if(type === "forget-password"){
                     const user = await prisma.user.findUnique({
@@ -114,8 +111,7 @@ export const auth = betterAuth({
                     })
 
                     if(user){
-                        // Fire and forget - don't await email sending
-                        sendEmail({
+                        void sendEmail({
                             to : email,
                             subject : "Password Reset OTP",
                             templateName : "otp",
@@ -123,9 +119,7 @@ export const auth = betterAuth({
                                 name : user.name,
                                 otp,
                             }
-                        }).catch((err) => {
-                          console.error("Failed to send password reset OTP:", err);
-                        });
+                        })
                     }
                 }
             },

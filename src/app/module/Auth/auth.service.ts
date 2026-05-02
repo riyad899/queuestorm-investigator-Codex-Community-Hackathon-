@@ -11,7 +11,6 @@ import { IchanegPasswordPayload } from "./auth.interface.js";
 import { jwtUtils } from "../../utils/jwt.js";
 import { envVars } from "../../../config/env.js";
 import { JwtPayload } from "jsonwebtoken";
-import * as bcrypt from "better-auth/crypto";
 
 interface IRegisterCustomerPayload {
   name: string;
@@ -61,158 +60,63 @@ const register = async (payload: IRegisterCustomerPayload, requestHeaders: Incom
     throw new AppError("Address cannot be empty", status.BAD_REQUEST);
   }
 
-  // Check if email already exists
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-  });
+  const data = await auth.api.signUpEmail({
+    body: { name, email, password },
+    headers: fromNodeHeaders(requestHeaders),
+  } as any) as any;
 
-  if (existingUser) {
-    throw new AppError("Email already registered", status.CONFLICT);
+  if (!data?.user) {
+    throw new AppError("Failed to create user", status.INTERNAL_SERVER_ERROR);
   }
 
   try {
-    // Hash password
-    const hashedPassword = await bcrypt.hashPassword(password);
-
-    // Create user and account in a transaction
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Create the user
-      const newUser = await tx.user.create({
-        data: {
-          id: crypto.randomUUID?.() || Math.random().toString(),
-          name,
-          email,
-          role: "CUSTOMER" as any,
-          status: "ACTIVE" as any,
-        },
-      });
-
-      // Create the account with password
-      await tx.account.create({
-        data: {
-          id: crypto.randomUUID?.() || Math.random().toString(),
-          userId: newUser.id,
-          accountId: newUser.id,
-          providerId: "credential",
-          password: hashedPassword,
-        },
-      });
-
-      // Create the customer profile
-      const customer = await tx.customer.create({
+    const customer = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      return tx.customer.create({
         data: {
           name,
           email,
           ...(age !== undefined ? { age } : {}),
           ...(address !== undefined ? { address: address.trim() } : {}),
           ...(contact !== undefined ? { contact } : {}),
-          user: { connect: { id: newUser.id } },
+          user: { connect: { id: data.user.id } },
         },
       });
-
-      return { user: newUser, customer };
     });
 
     const accessToken = tokenUtils.getAccessToken({
-      userId: result.user.id,
-      email: result.user.email,
-      role: result.user.role,
-      status: result.user.status,
-      isDeleted: result.user.isdeleted,
-      emailVerified: result.user.emailVerified,
+      userId: data.user.id, email: data.user.email, role: data.user.role,
+      status: data.user.status, isDeleted: data.user.isdeleted, emailVerified: data.user.emailVerified,
     });
     const refreshToken = tokenUtils.getRefreshToken({
-      userId: result.user.id,
-      email: result.user.email,
-      role: result.user.role,
-      status: result.user.status,
-      isDeleted: result.user.isdeleted,
-      emailVerified: result.user.emailVerified,
+      userId: data.user.id, email: data.user.email, role: data.user.role,
+      status: data.user.status, isDeleted: data.user.isdeleted, emailVerified: data.user.emailVerified,
     });
 
-    return {
-      data: {
-        user: result.user,
-        customer: result.customer,
-        accessToken,
-        refreshToken,
-        token: "",
-      },
-    };
-  } catch (error: any) {
-    if (error?.code === "P2002") {
-      throw new AppError("Email already registered", status.CONFLICT);
-    }
-    throw new AppError("Failed to create user account", status.INTERNAL_SERVER_ERROR);
+    return { data: { ...data, customer, accessToken, refreshToken } };
+  } catch {
+    await prisma.user.delete({ where: { id: data.user.id } }).catch(() => undefined);
+    throw new AppError("Failed to create customer profile", status.INTERNAL_SERVER_ERROR);
   }
 };
 
 const LoginUser = async (payload: ILoginUserPayload) => {
   const { email, password } = payload;
+  const data = await auth.api.signInEmail({ body: { email, password } });
 
-  // Find user by email
-  const user = await prisma.user.findUnique({
-    where: { email },
-  });
+  if (!data?.user) throw new AppError("Failed to login user", status.UNAUTHORIZED);
+  if (data.user.status === userStatus.INACTIVE) throw new AppError("User account is inactive. Please contact support.", status.FORBIDDEN);
+  if (data.user.status === userStatus.DELETED || data.user.isdeleted) throw new AppError("User account is deleted. Please contact support.", status.FORBIDDEN);
 
-  if (!user) {
-    throw new AppError("Invalid email or password", status.UNAUTHORIZED);
-  }
-
-  // Find the password account for this user
-  const account = await prisma.account.findFirst({
-    where: { 
-      userId: user.id,
-      providerId: "credential",
-    },
-  });
-
-  if (!account || !account.password) {
-    throw new AppError("Invalid email or password", status.UNAUTHORIZED);
-  }
-
-  // Verify password using better-auth's crypto
-  const isPasswordValid = await bcrypt.verifyPassword({
-    hash: account.password,
-    password,
-  });
-
-  if (!isPasswordValid) {
-    throw new AppError("Invalid email or password", status.UNAUTHORIZED);
-  }
-
-  // Check user status
-  if (user.status === userStatus.INACTIVE) {
-    throw new AppError("User account is inactive. Please contact support.", status.FORBIDDEN);
-  }
-  if (user.status === userStatus.DELETED || user.isdeleted) {
-    throw new AppError("User account is deleted. Please contact support.", status.FORBIDDEN);
-  }
-
-  // Generate tokens
   const accessToken = tokenUtils.getAccessToken({
-    userId: user.id, 
-    email: user.email, 
-    role: user.role,
-    status: user.status, 
-    isDeleted: user.isdeleted, 
-    emailVerified: user.emailVerified,
+    userId: data.user.id, email: data.user.email, role: data.user.role,
+    status: data.user.status, isDeleted: data.user.isdeleted, emailVerified: data.user.emailVerified,
   });
   const refreshToken = tokenUtils.getRefreshToken({
-    userId: user.id, 
-    email: user.email, 
-    role: user.role,
-    status: user.status, 
-    isDeleted: user.isdeleted, 
-    emailVerified: user.emailVerified,
+    userId: data.user.id, email: data.user.email, role: data.user.role,
+    status: data.user.status, isDeleted: data.user.isdeleted, emailVerified: data.user.emailVerified,
   });
 
-  return { 
-    user,
-    accessToken, 
-    refreshToken,
-    token: "", // better-auth session token
-  };
+  return { ...data, accessToken, refreshToken };
 };
 
 const updateCustomer = async (id: number, payload: IUpdateCustomerPayload) => {
