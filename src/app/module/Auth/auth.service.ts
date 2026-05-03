@@ -1,5 +1,6 @@
 import { auth } from "../../lib/auth.js";
 import { fromNodeHeaders } from "better-auth/node";
+import { hashPassword } from "better-auth/crypto";
 import { IncomingHttpHeaders } from "http";
 import { Prisma, userStatus } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
@@ -305,18 +306,6 @@ const forgetPassword = async (email: string) => {
 
   const otp = await generateAndSaveOTP(email);
 
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  await prisma.verification.create({
-    data: { id: crypto.randomUUID(), identifier: email, value: otp, expiresAt },
-  });
-
-  // Email sending is now handled by the frontend
-  // void sendEmail({
-  //   to: email,
-  //   subject: "Password Reset OTP",
-  //   text: `Your password reset OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`,
-  // });
-
   return { otp, email, message: "Password reset OTP generated successfully. Use this OTP to reset your password." };
 };
 
@@ -333,7 +322,11 @@ const resetPassword = async (email: string, otp: string, newPassword: string) =>
 
   await verifyOTPFromDatabase(email, otp);
 
-  await auth.api.resetPasswordEmailOTP({ body: { email, otp, password: newPassword } });
+  const hashedPassword = await hashPassword(newPassword);
+  await prisma.account.updateMany({
+    where: { userId: isUserExist.id, providerId: "credential" },
+    data: { password: hashedPassword },
+  });
 
   if (isUserExist.needsPasswordReset) {
     await prisma.user.update({ where: { id: isUserExist.id }, data: { needsPasswordReset: false } });
