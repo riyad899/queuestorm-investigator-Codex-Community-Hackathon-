@@ -6,6 +6,9 @@ import { envVars } from "../../config/env.js";
 import { bearer, emailOTP } from "better-auth/plugins";
 import { sendEmail } from "../utils/email.js";
 
+const useSecureCookies = envVars.BETTER_AUTH_URL.toLowerCase().startsWith("https://");
+const authCookieSameSite = useSecureCookies ? "none" : "lax";
+
 
 export const auth = betterAuth({
    baseURL: envVars.BETTER_AUTH_URL,
@@ -134,20 +137,20 @@ export const auth = betterAuth({
         trustedOrigins: [envVars.BETTER_AUTH_URL, envVars.FRONTEND_URL],
     advanced: {
         // disableCSRFCheck: true,
-        useSecureCookies : false,
+        useSecureCookies,
         cookies:{
             state:{
                 attributes:{
-                    sameSite: "none",
-                    secure: true,
+                    sameSite: authCookieSameSite,
+                    secure: useSecureCookies,
                     httpOnly: true,
                     path: "/",
                 }
             },
             sessionToken:{
                 attributes:{
-                    sameSite: "none",
-                    secure: true,
+                    sameSite: authCookieSameSite,
+                    secure: useSecureCookies,
                     httpOnly: true,
                     path: "/",
                 }

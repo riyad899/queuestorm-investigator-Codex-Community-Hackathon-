@@ -16,7 +16,7 @@ const router = Router();
 router.post("/register", validateZodSchema(registerCustomerZodSchema), AuthController.register);
 router.post("/login", validateZodSchema(loginUserZodSchema), AuthController.LoginUser);
 router.patch("/customer/:id", validateZodSchema(updateCustomerZodSchema), AuthController.updateCustomer);
-router.get("/me", checkAuth(), AuthController.getMe);
+router.get("/get-me", checkAuth(), AuthController.getMe);
 router.post("/refresh-token", AuthController.getNewToken);
 router.post("/change-password", AuthController.changePassword);
 router.post("/logout", AuthController.logoutUser);

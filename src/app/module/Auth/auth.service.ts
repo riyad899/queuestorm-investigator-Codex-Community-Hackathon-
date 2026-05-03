@@ -218,18 +218,18 @@ const logoutUser = async (sessionToken: string) => {
 const generateAndSaveOTP = async (email: string, expiryMinutes: number = 10) => {
   const otp = otpUtils.generateOTP();
   const otpExpiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
-  
+
   console.log("🔐 [OTP GENERATION] Email:", email);
   console.log("🔐 [OTP GENERATION] Generated OTP:", otp);
-  
+
   // Save OTP to database
   await prisma.user.update({
     where: { email },
     data: { otp, otpExpiresAt },
   });
-  
+
   console.log("🔐 [OTP GENERATION] Saved to database successfully");
-  
+
   return otp;
 };
 
@@ -238,17 +238,17 @@ const verifyOTPFromDatabase = async (email: string, otp: string): Promise<boolea
   console.log("\n🔍 [OTP VERIFICATION START]");
   console.log("🔍 Email:", email);
   console.log("🔍 Input OTP:", otp);
-  
+
   const user = await prisma.user.findUnique({ where: { email } });
-  
+
   if (!user) {
     throw new AppError("User not found", status.NOT_FOUND);
   }
-  
+
   if (!user.otp) {
     throw new AppError("OTP not found or expired", status.BAD_REQUEST);
   }
-  
+
   if (user.otpExpiresAt && user.otpExpiresAt < new Date()) {
     console.log("❌ OTP has expired");
     await prisma.user.update({
@@ -257,35 +257,35 @@ const verifyOTPFromDatabase = async (email: string, otp: string): Promise<boolea
     });
     throw new AppError("OTP has expired", status.BAD_REQUEST);
   }
-  
+
   // Convert both to numbers for comparison
   const inputOTPNumber = parseInt((otp || "").trim(), 10);
   const storedOTPNumber = parseInt((user.otp || "").trim(), 10);
-  
+
   console.log("\n🔍 [COMPARISON AS NUMBERS]");
   console.log("🔍 Input OTP Number:", inputOTPNumber);
   console.log("🔍 Stored OTP Number:", storedOTPNumber);
   console.log("Match Result:", storedOTPNumber === inputOTPNumber);
-  
+
   if (isNaN(inputOTPNumber) || isNaN(storedOTPNumber)) {
     throw new AppError("Invalid OTP format", status.BAD_REQUEST);
   }
-  
+
   if (storedOTPNumber !== inputOTPNumber) {
     console.log("❌ OTP MISMATCH!");
     throw new AppError("Invalid OTP", status.BAD_REQUEST);
   }
-  
+
   console.log("✅ OTP MATCH! Clearing from database...");
-  
+
   // Clear OTP after successful verification
   await prisma.user.update({
     where: { email },
     data: { otp: null, otpExpiresAt: null },
   });
-  
+
   console.log("✅ OTP cleared from database\n");
-  
+
   return true;
 };
 
@@ -345,16 +345,41 @@ const resetPassword = async (email: string, otp: string, newPassword: string) =>
   await prisma.session.deleteMany({ where: { userId: isUserExist.id } });
 };
 
-const googleLoginSuccess = async (session: Record<string, any>) => {
-  const isCustomerExists = await prisma.customer.findUnique({ where: { userID: session.user.id } });
-  if (!isCustomerExists) {
-    await prisma.customer.create({ data: { userID: session.user.id, name: session.user.name, email: session.user.email } });
-  }
+const googleLoginSuccess = async (session : Record<string, any>) =>{
+    const isStudentExists = await prisma.customer.findUnique({
+        where : {
+      userID : session.user.id,
+        }
+    })
 
-  const accessToken = tokenUtils.getAccessToken({ userId: session.user.id, role: session.user.role, name: session.user.name });
-  const refreshToken = tokenUtils.getRefreshToken({ userId: session.user.id, role: session.user.role, name: session.user.name });
-  return { accessToken, refreshToken };
-};
+    if(!isStudentExists){
+        await prisma.customer.create({
+            data : {
+            userID : session.user.id,
+                name : session.user.name,
+                email : session.user.email,
+            }
+
+        })
+    }
+
+    const accessToken = tokenUtils.getAccessToken({
+        userId: session.user.id,
+        role: session.user.role,
+        name: session.user.name,
+    });
+
+    const refreshToken = tokenUtils.getRefreshToken({
+        userId: session.user.id,
+        role: session.user.role,
+        name: session.user.name,
+    });
+
+    return {
+        accessToken,
+        refreshToken,
+    }
+}
 
 const requestEmailVerificationOTP = async (email: string) => {
   if (!email || !email.trim()) throw new AppError("Email is required", status.BAD_REQUEST);
@@ -369,8 +394,8 @@ const requestEmailVerificationOTP = async (email: string) => {
   await prisma.verification.create({ data: { id: crypto.randomUUID(), identifier: email, value: otp, expiresAt } });
 
   // Send simple text email - Frontend handles template display
-  void sendEmail({ 
-    to: email, 
+  void sendEmail({
+    to: email,
     subject: "Verify your email",
     text: `Your email verification OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`
   });

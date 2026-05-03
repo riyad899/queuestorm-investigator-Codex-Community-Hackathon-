@@ -5,6 +5,9 @@ import { CookieUtils } from "./cookie.js";
 import { jwtUtils } from "./jwt.js";
 import { envVars } from "../../config/env.js";
 
+const useSecureCookies = envVars.BETTER_AUTH_URL.toLowerCase().startsWith("https://");
+const authCookieSameSite = useSecureCookies ? "none" : "lax";
+
 
 //Creating access token
 const getAccessToken = (payload: JwtPayload) => {
@@ -30,8 +33,8 @@ const getRefreshToken = (payload: JwtPayload) => {
 const setAccessTokenCookie = (res: Response, token: string) => {
     CookieUtils.setCookie(res, 'accessToken', token, {
         httpOnly: true,
-        secure: true,
-        sameSite: "none",
+        secure: useSecureCookies,
+        sameSite: authCookieSameSite,
         path: '/',
         //1 day
         maxAge: 60 * 60 * 24 * 1000,
@@ -41,8 +44,8 @@ const setAccessTokenCookie = (res: Response, token: string) => {
 const setRefreshTokenCookie = (res: Response, token: string) => {
     CookieUtils.setCookie(res, 'refreshToken', token, {
         httpOnly: true,
-        secure: true,
-        sameSite: "none",
+        secure: useSecureCookies,
+        sameSite: authCookieSameSite,
         path: '/',
         //7d
         maxAge: 60 * 60 * 24 * 1000 * 7,
@@ -52,8 +55,8 @@ const setRefreshTokenCookie = (res: Response, token: string) => {
 const setBetterAuthSessionCookie = (res: Response, token: string) => {
     CookieUtils.setCookie(res, "better-auth.session_token", token, {
         httpOnly: true,
-        secure: true,
-        sameSite: "none",
+        secure: useSecureCookies,
+        sameSite: authCookieSameSite,
         path: '/',
         //1 day
         maxAge: 60 * 60 * 24 * 1000,

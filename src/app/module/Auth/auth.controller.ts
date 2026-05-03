@@ -145,31 +145,102 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
 
 // /api/v1/auth/login/google
 const googleLogin = catchAsync((req: Request, res: Response) => {
-  const encodedRedirectPath = encodeURIComponent("/");
-  const callbackURL = `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success?redirect=${encodedRedirectPath}`;
-  res.render("googleRedirect", { callbackURL, betterAuthUrl: envVars.BETTER_AUTH_URL });
-});
+    const redirectPath = req.query.redirect || "/";
+
+    const encodedRedirectPath = encodeURIComponent(redirectPath as string);
+
+    const callbackURL = `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success?redirect=${encodedRedirectPath}`;
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Login</title>
+</head>
+<body>
+    <div>
+        <p>Redirecting To Google...</p>
+    </div>
+</body>
+<script>
+    (
+        async () => {
+            try {
+                const response = await fetch("${envVars.BETTER_AUTH_URL}/api/auth/sign-in/social", {
+                    method : "POST",
+                    headers : {
+                        "Content-Type" : "application/json"
+                    },
+                    credentials : "include",
+                    body: JSON.stringify({
+                        provider : "google",
+                        callbackURL: "${callbackURL}"
+                    })
+                })
+
+                const data = await response.json();
+
+                if(data.url){
+                    window.location.href = data.url
+                }else{
+                    document.body.innerHTML = \`<div>
+                    <p>
+                        Error Occurred While Redirecting To Google. Please Try Again Later.
+                    </p>
+                    </div>\`
+                }
+            } catch (error) {
+                document.body.innerHTML = \`<div>
+                    <p>
+                        Error Occurred While Redirecting To Google. Please Try Again Later.
+                        \${error.message}
+                    </p>
+                    </div>\`
+            }
+        }
+    )()
+</script>
+</html>`);
+})
 
 const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
-  const sessionToken = req.cookies["better-auth.session_token"];
+    const redirectPath = req.query.redirect as string || "/";
 
-  if (!sessionToken) return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_failed`);
+    const sessionToken = req.cookies["better-auth.session_token"];
 
-  const session = await auth.api.getSession({
-    headers: { "Cookie": `better-auth.session_token=${sessionToken}` },
-  });
+    if(!sessionToken){
+        return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_failed`);
+    }
 
-  if (!session) return res.redirect(`${envVars.FRONTEND_URL}/login?error=no_session_found`);
-  if (session && !session.user) return res.redirect(`${envVars.FRONTEND_URL}/login?error=no_user_found`);
+    const session = await auth.api.getSession({
+        headers:{
+            "Cookie" : `better-auth.session_token=${sessionToken}`
+        }
+    })
 
-  const result = await authService.googleLoginSuccess(session);
-  const { accessToken, refreshToken } = result;
+    if (!session) {
+        return res.redirect(`${envVars.FRONTEND_URL}/login?error=no_session_found`);
+    }
 
-  tokenUtils.setAccessTokenCookie(res, accessToken);
-  tokenUtils.setRefreshTokenCookie(res, refreshToken);
 
-  res.redirect(`${envVars.FRONTEND_URL}/`);
-});
+    if(session && !session.user){
+        return res.redirect(`${envVars.FRONTEND_URL}/login?error=no_user_found`);
+    }
+
+    const result = await authService.googleLoginSuccess(session);
+
+    const {accessToken, refreshToken} = result;
+
+    tokenUtils.setAccessTokenCookie(res, accessToken);
+    tokenUtils.setRefreshTokenCookie(res, refreshToken);
+ // ?redirect=//profile -> /profile
+    const isValidRedirectPath = redirectPath.startsWith("/") && !redirectPath.startsWith("//");
+    const finalRedirectPath = isValidRedirectPath ? redirectPath : "/";
+
+    res.redirect(`${envVars.FRONTEND_URL}${finalRedirectPath}`);
+})
 
 const handleOAuthError = catchAsync((req: Request, res: Response) => {
   const error = req.query.error as string || "oauth_failed";
