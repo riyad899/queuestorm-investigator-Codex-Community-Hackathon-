@@ -96,11 +96,12 @@ export const auth = betterAuth({
                    }
 
                     if (user && !user.emailVerified){
-                    void sendEmail({
-                        to : email,
-                        subject : "Verify your email",
-                        text : `Hi ${user.name},\n\nYour email verification OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.\n\nPlease use this code to verify your email address.`
-                    })
+                    // Email sending is now handled by the frontend
+                    // void sendEmail({
+                    //     to : email,
+                    //     subject : "Verify your email",
+                    //     text : `Hi ${user.name},\n\nYour email verification OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.\n\nPlease use this code to verify your email address.`
+                    // })
                   }
                 }else if(type === "forget-password"){
                     const user = await prisma.user.findUnique({
@@ -110,11 +111,12 @@ export const auth = betterAuth({
                     })
 
                     if(user){
-                        void sendEmail({
-                            to : email,
-                            subject : "Password Reset OTP",
-                            text : `Hi ${user.name},\n\nYour password reset OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.\n\nPlease use this code to reset your password.`
-                        })
+                        // Email sending is now handled by the frontend
+                        // void sendEmail({
+                        //     to : email,
+                        //     subject : "Password Reset OTP",
+                        //     text : `Hi ${user.name},\n\nYour password reset OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.\n\nPlease use this code to reset your password.`
+                        // })
                     }
                 }
             },

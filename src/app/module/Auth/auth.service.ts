@@ -310,16 +310,12 @@ const forgetPassword = async (email: string) => {
     data: { id: crypto.randomUUID(), identifier: email, value: otp, expiresAt },
   });
 
-  // Send simple text email - Frontend handles template display
-  void sendEmail({
-    to: email,
-    subject: "Password Reset OTP",
-    text: `Your password reset OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`,
-  });
-
-  if (envVars.NODE_ENV === "production") {
-    return { email, message: "Password reset OTP sent to email successfully" };
-  }
+  // Email sending is now handled by the frontend
+  // void sendEmail({
+  //   to: email,
+  //   subject: "Password Reset OTP",
+  //   text: `Your password reset OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`,
+  // });
 
   return { otp, email, message: "Password reset OTP generated successfully. Use this OTP to reset your password." };
 };
@@ -393,16 +389,12 @@ const requestEmailVerificationOTP = async (email: string) => {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   await prisma.verification.create({ data: { id: crypto.randomUUID(), identifier: email, value: otp, expiresAt } });
 
-  // Send simple text email - Frontend handles template display
-  void sendEmail({
-    to: email,
-    subject: "Verify your email",
-    text: `Your email verification OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`
-  });
-
-  if (envVars.NODE_ENV === "production") {
-    return { email, message: "OTP sent to email for verification" };
-  }
+  // Email sending is now handled by the frontend
+  // void sendEmail({
+  //   to: email,
+  //   subject: "Verify your email",
+  //   text: `Your email verification OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`
+  // });
 
   return { otp, email, message: "OTP generated successfully. Use this OTP to verify your email. (Valid for 10 minutes)" };
 };
