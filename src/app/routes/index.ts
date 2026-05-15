@@ -11,6 +11,8 @@ import { BlogRoute } from '../module/Blog/blog.route.js';
 import { CouponRoute } from '../module/Coupon/coupon.route.js';
 import { ServiceCenterRoute } from '../module/ServiceCenter/serviceCenter.route.js';
 import { JobRoute } from '../module/Job/job.route.js';
+import { FooterSettingRoute } from '../module/FooterSetting/footerSetting.route.js';
+import { IconsRoute } from '../module/Icons/icons.route.js';
 
 const router = Router();
 
@@ -26,5 +28,7 @@ router.use("/", BlogRoute);
 router.use("/", CouponRoute);
 router.use("/", ServiceCenterRoute);
 router.use("/", JobRoute);
+router.use("/footer-setting", FooterSettingRoute);
+router.use("/icons", IconsRoute);
 
 export const IndexRoute = router;

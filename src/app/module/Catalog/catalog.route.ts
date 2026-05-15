@@ -19,9 +19,12 @@ router.patch("/category/:id", validateZodSchema(updateCategoryZodSchema), Catalo
 
 router.post("/subcategory", validateZodSchema(createSubCategoryZodSchema), CatalogController.createSubCategory);
 router.get("/subcategory", CatalogController.getSubCategories);
+router.get("/subcategory/:id", CatalogController.getSubCategoryById);
 
 router.post("/spec-group", validateZodSchema(createSpecificationGroupZodSchema), CatalogController.createSpecificationGroup);
 router.post("/spec-field", validateZodSchema(createSpecificationFieldZodSchema), CatalogController.createSpecificationField);
+router.get("/spec-group", CatalogController.getSpecificationGroups);
+router.get("/spec-field", CatalogController.getSpecificationFields);
 router.get("/specifications", CatalogController.getSpecifications);
 
 router.post("/product", validateZodSchema(createProductZodSchema), CatalogController.createProduct);

@@ -201,6 +201,21 @@ const getSubCategories = async (categoryId?: string) => {
   return { total: subCategories.length, data: subCategories };
 };
 
+const getSubCategoryById = async (id: string) => {
+  const subCategory = await prisma.subCategory.findUnique({
+    where: { id },
+    include: {
+      category: true,
+    },
+  });
+
+  if (!subCategory) {
+    throw new AppError("Subcategory not found", status.NOT_FOUND);
+  }
+
+  return subCategory;
+};
+
 const createSpecificationGroup = async (payload: ICreateSpecificationGroupPayload) => {
   const groupName = payload.name.trim();
 
@@ -251,6 +266,75 @@ const createSpecificationField = async (payload: ICreateSpecificationFieldPayloa
       options: payload.options ?? [],
     },
   });
+};
+
+const getSpecificationGroups = async (subCategoryId: string) => {
+  const subCategory = await prisma.subCategory.findUnique({
+    where: { id: subCategoryId },
+  });
+
+  if (!subCategory) {
+    throw new AppError("Subcategory not found", status.NOT_FOUND);
+  }
+
+  const groups = await prisma.specificationGroup.findMany({
+    where: { subCategoryId },
+    orderBy: { name: "asc" },
+  });
+
+  return { total: groups.length, data: groups };
+};
+
+const getSpecificationFields = async (groupId: string) => {
+  const group = await prisma.specificationGroup.findUnique({
+    where: { id: groupId },
+  });
+
+  if (!group) {
+    throw new AppError("Specification group not found", status.NOT_FOUND);
+  }
+
+  const fields = await prisma.specificationField.findMany({
+    where: { groupId },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      options: true,
+      groupId: true,
+    },
+  });
+
+  return { total: fields.length, data: fields };
+};
+
+const getSpecificationFieldsBySubCategory = async (subCategoryId: string) => {
+  const subCategory = await prisma.subCategory.findUnique({
+    where: { id: subCategoryId },
+  });
+
+  if (!subCategory) {
+    throw new AppError("Subcategory not found", status.NOT_FOUND);
+  }
+
+  const fields = await prisma.specificationField.findMany({
+    where: {
+      group: {
+        subCategoryId,
+      },
+    },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      options: true,
+      groupId: true,
+    },
+  });
+
+  return { total: fields.length, data: fields };
 };
 
 const getSpecifications = async (subcategoryId: string) => {
@@ -944,8 +1028,12 @@ export const CatalogService = {
   updateCategory,
   createSubCategory,
   getSubCategories,
+  getSubCategoryById,
   createSpecificationGroup,
   createSpecificationField,
+  getSpecificationGroups,
+  getSpecificationFields,
+  getSpecificationFieldsBySubCategory,
   getSpecifications,
   createProduct,
   getProducts,

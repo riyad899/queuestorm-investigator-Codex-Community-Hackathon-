@@ -10,7 +10,8 @@
     "lint": "eslint ./src",
     "generate": "prisma generate",
     "migrate": "prisma migrate dev",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "seed:icons": "tsx src/scripts/seed-icons.ts"
   },
   "keywords": [],
   "author": "",

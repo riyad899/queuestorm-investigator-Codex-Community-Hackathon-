@@ -60,6 +60,17 @@ const getSubCategories = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getSubCategoryById = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.getSubCategoryById(String(req.params.id));
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Subcategory fetched successfully",
+    data: result,
+  });
+});
+
 const createSpecificationGroup = catchAsync(async (req: Request, res: Response) => {
   const result = await CatalogService.createSpecificationGroup(req.body);
 
@@ -82,8 +93,79 @@ const createSpecificationField = catchAsync(async (req: Request, res: Response) 
   });
 });
 
+const getSpecificationGroups = catchAsync(async (req: Request, res: Response) => {
+  const subcategoryId = (req.query.subcategoryId ?? req.query.subCategoryId) as string | undefined;
+
+  if (!subcategoryId) {
+    sendResponse(res, {
+      httpStatus: status.BAD_REQUEST,
+      success: false,
+      message: "subcategoryId query parameter is required",
+    });
+    return;
+  }
+
+  const result = await CatalogService.getSpecificationGroups(subcategoryId);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Specification groups fetched successfully",
+    data: result,
+  });
+});
+
+const getSpecificationFields = catchAsync(async (req: Request, res: Response) => {
+  const groupId = (req.query.groupId ?? req.query.group_id ?? req.query.specGroupId) as string | undefined;
+  const subcategoryId = (req.query.subcategoryId ?? req.query.subCategoryId) as string | undefined;
+
+  if (groupId) {
+    const result = await CatalogService.getSpecificationFields(groupId);
+
+    if (subcategoryId) {
+      const groupIdsInSubcategory = new Set(
+        (await CatalogService.getSpecificationGroups(subcategoryId)).data.map((g) => g.id),
+      );
+      if (!groupIdsInSubcategory.has(groupId)) {
+        sendResponse(res, {
+          httpStatus: status.BAD_REQUEST,
+          success: false,
+          message: "groupId does not belong to the provided subcategoryId",
+        });
+        return;
+      }
+    }
+
+    sendResponse(res, {
+      httpStatus: status.OK,
+      success: true,
+      message: "Specification fields fetched successfully",
+      data: result,
+    });
+    return;
+  }
+
+  if (!subcategoryId) {
+    sendResponse(res, {
+      httpStatus: status.BAD_REQUEST,
+      success: false,
+      message: "groupId or subcategoryId query parameter is required",
+    });
+    return;
+  }
+
+  const result = await CatalogService.getSpecificationFieldsBySubCategory(subcategoryId);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Specification fields fetched successfully",
+    data: result,
+  });
+});
+
 const getSpecifications = catchAsync(async (req: Request, res: Response) => {
-  const subcategoryId = req.query.subcategoryId as string | undefined;
+  const subcategoryId = (req.query.subcategoryId ?? req.query.subCategoryId) as string | undefined;
 
   if (!subcategoryId) {
     sendResponse(res, {
@@ -227,8 +309,11 @@ export const CatalogController = {
   updateCategory,
   createSubCategory,
   getSubCategories,
+  getSubCategoryById,
   createSpecificationGroup,
   createSpecificationField,
+  getSpecificationGroups,
+  getSpecificationFields,
   getSpecifications,
   createProduct,
   getProducts,
