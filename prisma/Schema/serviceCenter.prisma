@@ -1,0 +1,35 @@
+model ServiceCenter {
+  id       String  @id @default(uuid())
+  name     String
+  slug     String  @unique
+  division String
+  address  String
+  phone    String
+  email    String?
+
+  mapLink  String?
+
+  isFeatured Boolean @default(false)
+
+  openTime  String
+  closeTime String
+
+  centers ServiceCenterService[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ServiceCenterService {
+  id              String @id @default(uuid())
+  serviceCenterId String
+  serviceId       String
+
+  serviceCenter ServiceCenter @relation(fields: [serviceCenterId], references: [id], onDelete: Cascade)
+  service       Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([serviceCenterId, serviceId])
+}

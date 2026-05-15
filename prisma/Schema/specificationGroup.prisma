@@ -1,0 +1,9 @@
+model SpecificationGroup {
+  id   String @id @default(uuid())
+  name String // "Display", "Memory", "Processor"
+
+  subCategoryId String
+  subCategory   SubCategory @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
+
+  fields SpecificationField[]
+}

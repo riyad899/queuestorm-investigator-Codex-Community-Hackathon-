@@ -1,0 +1,50 @@
+model PaymentSetting {
+  id String @id @default(cuid())
+
+  topMessage String?
+
+  paymentMethods  PaymentMethodSetting[]
+  deliveryMethods DeliveryMethodSetting[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PaymentMethodSetting {
+  id String @id @default(cuid())
+
+  paymentSettingId String
+  paymentSetting   PaymentSetting @relation(fields: [paymentSettingId], references: [id], onDelete: Cascade)
+
+  key       String
+  name      String
+  isActive  Boolean @default(true)
+
+  accountNumber String?
+  description   String?
+  qrCodeUrl     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([paymentSettingId, key])
+  @@index([paymentSettingId])
+}
+
+model DeliveryMethodSetting {
+  id String @id @default(cuid())
+
+  paymentSettingId String
+  paymentSetting   PaymentSetting @relation(fields: [paymentSettingId], references: [id], onDelete: Cascade)
+
+  key      String
+  name     String
+  fee      Float   @default(0)
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([paymentSettingId, key])
+  @@index([paymentSettingId])
+}

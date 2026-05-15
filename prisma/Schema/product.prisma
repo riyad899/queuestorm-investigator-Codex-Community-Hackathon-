@@ -1,0 +1,26 @@
+model Product {
+  id            String   @id @default(uuid())
+  title         String
+  price         Float
+  discountPrice Float?
+  quantity      Int      @default(0)
+  rating        Float    @default(0)
+  reviewCount   Int      @default(0)
+  likeCount     Int      @default(0)
+  images        String[]
+  isFeatured    Boolean  @default(false)
+
+  brandId String?
+  brand   Brand?  @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  subCategoryId String
+  subCategory   SubCategory @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
+
+  specifications      ProductSpecification[]
+  latestOfferProducts LatestOfferProduct[]
+  orderItems          OrderItem[]
+  couponProducts      CouponProduct[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

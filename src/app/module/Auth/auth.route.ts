@@ -17,6 +17,7 @@ router.post("/register", validateZodSchema(registerCustomerZodSchema), AuthContr
 router.post("/login", validateZodSchema(loginUserZodSchema), AuthController.LoginUser);
 router.patch("/customer/:id", validateZodSchema(updateCustomerZodSchema), AuthController.updateCustomer);
 router.get("/get-me", checkAuth(), AuthController.getMe);
+router.get("/role", checkAuth(), AuthController.getRole);
 router.post("/refresh-token", AuthController.getNewToken);
 router.post("/change-password", AuthController.changePassword);
 router.post("/logout", AuthController.logoutUser);

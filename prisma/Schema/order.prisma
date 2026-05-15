@@ -1,0 +1,62 @@
+model Order {
+  id String @id @default(cuid())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  firstName    String
+  lastName     String
+  address      String
+  upazilaThana String
+  district     String
+  mobile       String
+  email        String
+  comment      String?
+
+  paymentMethodKey  String?
+  deliveryMethodKey String?
+
+  couponId           String?
+  coupon             Coupon? @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  couponCodeSnapshot String?
+  discountAmount     Float   @default(0)
+
+  subTotal    Float
+  deliveryFee Float   @default(0)
+  total       Float
+
+  paymentStatus  PaymentStatus  @default(PENDING)
+  deliveryStatus DeliveryStatus @default(PENDING)
+
+  paidAt      DateTime?
+  deliveredAt DateTime?
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id String @id @default(cuid())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productTitle String
+
+  unitPrice Float
+  quantity  Int
+  lineTotal Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+}

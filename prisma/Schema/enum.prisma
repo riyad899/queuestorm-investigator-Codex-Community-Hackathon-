@@ -15,3 +15,21 @@ enum GENDER {
     MALE
     FEMALE
 }
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+}
+
+enum DeliveryStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELED
+}

@@ -1,0 +1,10 @@
+model SubCategory {
+  id   String @id @default(uuid())
+  name String
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  specificationGroups SpecificationGroup[]
+  products            Product[]
+}

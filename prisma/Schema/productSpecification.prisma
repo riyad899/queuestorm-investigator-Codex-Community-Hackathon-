@@ -1,0 +1,13 @@
+model ProductSpecification {
+  id        String @id @default(uuid())
+  productId String
+  fieldId   String
+
+  value String // "16GB", "144Hz", etc.
+
+  product Product            @relation(fields: [productId], references: [id])
+  field   SpecificationField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([fieldId])
+}

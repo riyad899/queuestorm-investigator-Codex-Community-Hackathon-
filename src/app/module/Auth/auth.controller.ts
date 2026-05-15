@@ -73,6 +73,20 @@ const getMe = catchAsync(async (req, res) => {
   });
 });
 
+const getRole = catchAsync(async (req, res) => {
+  const user = req.user;
+  if (!user) {
+    throw new AppError("Unauthorized access! User not found in request.", status.UNAUTHORIZED);
+  }
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Role fetched successfully",
+    data: { role: user.role },
+  });
+});
+
 const verifyEmail = catchAsync(async (req: Request, res: Response) => {
   const { email, otp } = req.body;
   await authService.verifyEmail(email, otp);
@@ -270,7 +284,7 @@ const requestPasswordResetOTP = catchAsync(async (req: Request, res: Response) =
 });
 
 export const AuthController = {
-  register, LoginUser, updateCustomer, getMe, getNewToken, changePassword,
+  register, LoginUser, updateCustomer, getMe, getRole, getNewToken, changePassword,
   logoutUser, verifyEmail, forgetPassword, resetPassword, googleLogin, googleLoginSuccess, handleOAuthError,
   requestEmailVerificationOTP, requestPasswordResetOTP,
 };

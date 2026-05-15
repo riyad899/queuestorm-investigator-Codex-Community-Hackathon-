@@ -1,0 +1,13 @@
+model Category {
+  id         String  @id @default(uuid())
+  name       String
+  slug       String  @unique
+  isFeatured Boolean @default(false)
+  icon       String?
+  image      String?
+
+  subCategories            SubCategory[]
+  brands                   BrandCategory[]
+  popularCategoryItems     PopularCategory[]
+  recommendedCategoryItems RecommendedCategory[]
+}

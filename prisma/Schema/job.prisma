@@ -1,0 +1,39 @@
+model Department {
+  id   String @id @default(uuid())
+  name String @unique
+
+  jobs Job[]
+}
+
+model Job {
+  id           String     @id @default(uuid())
+  title        String
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  jobType    String
+  location   String
+  experience String
+  deadline   DateTime
+
+  description String?
+  isActive    Boolean @default(true)
+
+  applications JobApplication[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JobApplication {
+  id    String @id @default(uuid())
+  jobId String
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  name      String
+  email     String
+  phone     String
+  resumeUrl String
+
+  createdAt DateTime @default(now())
+}

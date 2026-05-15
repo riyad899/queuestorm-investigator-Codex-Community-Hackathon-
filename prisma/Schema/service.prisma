@@ -1,0 +1,7 @@
+model Service {
+  id             String                 @id @default(uuid())
+  name           String                 @unique
+  icon           String?
+
+  centers        ServiceCenterService[]
+}

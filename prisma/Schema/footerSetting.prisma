@@ -1,0 +1,26 @@
+model FooterSetting {
+  id             String   @id @default(cuid())
+
+  title          String
+  address        String?
+  store          String?
+  district       String?
+  experience     String?
+
+  paymentAccepts String[]
+
+  facebookLink   String?
+  twitterLink    String?
+  youtubeLink    String?
+  whatsappLink   String?
+
+  playStoreLink  String?
+  appleStoreLink String?
+
+  hotline        String?
+  email          String?
+  hq             String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

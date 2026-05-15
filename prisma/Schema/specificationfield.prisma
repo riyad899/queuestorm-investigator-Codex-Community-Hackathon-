@@ -1,0 +1,12 @@
+model SpecificationField {
+  id   String @id @default(uuid())
+  name String // "RAM", "Storage", "Resolution"
+
+  groupId String
+  type    String   @default("text")
+  options String[] @default([])
+
+  group SpecificationGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  productSpecifications ProductSpecification[]
+}
