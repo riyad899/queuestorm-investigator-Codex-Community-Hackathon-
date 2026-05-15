@@ -62,6 +62,16 @@ const upsertBannerSetting = async (payload: IHomeBannerSettingPayload) => {
   });
 };
 
+const createBannerSetting = async (payload: IHomeBannerSettingPayload) => {
+  return prisma.homeBannerSetting.create({
+    data: {
+      middleBanner: payload.middleBanner,
+      sideBanner: payload.sideBanner ?? [],
+      recommendedBanners: payload.recommendedBanners ?? [],
+    },
+  });
+};
+
 const createLogoSliderItem = async (payload: IHomeLogoSliderItemPayload) => {
   return prisma.homeLogoSliderItem.create({
     data: {

@@ -26,6 +26,17 @@ const upsertBannerSetting = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const createBannerSetting = catchAsync(async (req: Request, res: Response) => {
+  const result = await HomeSettingService.createBannerSetting(req.body);
+
+  sendResponse(res, {
+    httpStatus: status.CREATED,
+    success: true,
+    message: "Banner setting created successfully",
+    data: result,
+  });
+});
+
 const createLogoSliderItem = catchAsync(async (req: Request, res: Response) => {
   const result = await HomeSettingService.createLogoSliderItem(req.body);
 
@@ -237,6 +248,7 @@ const deleteTestimonial = catchAsync(async (req: Request, res: Response) => {
 
 export const HomeSettingController = {
   getBannerSetting,
+  createBannerSetting,
   upsertBannerSetting,
   createLogoSliderItem,
   getLogoSliderItems,

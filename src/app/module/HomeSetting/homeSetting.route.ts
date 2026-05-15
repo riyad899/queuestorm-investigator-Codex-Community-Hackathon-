@@ -18,6 +18,7 @@ import { HomeAdSettingRoute } from "./homeAdSetting.route.js";
 const router = Router();
 
 router.get("/banner", HomeSettingController.getBannerSetting);
+router.post("/banner", validateZodSchema(upsertHomeBannerSettingZodSchema), HomeSettingController.createBannerSetting);
 router.put("/banner", validateZodSchema(upsertHomeBannerSettingZodSchema), HomeSettingController.upsertBannerSetting);
 
 router.use("/ads", HomeAdSettingRoute);
