@@ -1,6 +1,7 @@
 export interface IHomeBannerSettingPayload {
-  homeBanners: string[];
-  recommendedBanners: string[];
+  middleBanner: string[];
+  sideBanner?: string[];
+  recommendedBanners?: string[];
 }
 
 export interface IHomeLogoSliderItemPayload {

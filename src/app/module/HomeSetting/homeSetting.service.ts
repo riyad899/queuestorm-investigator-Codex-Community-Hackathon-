@@ -45,8 +45,9 @@ const upsertBannerSetting = async (payload: IHomeBannerSettingPayload) => {
   if (!existing) {
     return prisma.homeBannerSetting.create({
       data: {
-        homeBanners: payload.homeBanners,
-        recommendedBanners: payload.recommendedBanners,
+        middleBanner: payload.middleBanner,
+        sideBanner: payload.sideBanner ?? [],
+        recommendedBanners: payload.recommendedBanners ?? [],
       },
     });
   }
@@ -54,8 +55,9 @@ const upsertBannerSetting = async (payload: IHomeBannerSettingPayload) => {
   return prisma.homeBannerSetting.update({
     where: { id: existing.id },
     data: {
-      homeBanners: payload.homeBanners,
-      recommendedBanners: payload.recommendedBanners,
+      middleBanner: payload.middleBanner,
+      sideBanner: payload.sideBanner ?? [],
+      recommendedBanners: payload.recommendedBanners ?? [],
     },
   });
 };

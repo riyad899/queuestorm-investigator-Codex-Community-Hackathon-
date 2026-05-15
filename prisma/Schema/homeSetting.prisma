@@ -1,6 +1,7 @@
 model HomeBannerSetting {
   id                 String   @id @default(cuid())
-  homeBanners        String[]
+  middleBanner       String[]
+  sideBanner         String[] @default([])
   recommendedBanners String[]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

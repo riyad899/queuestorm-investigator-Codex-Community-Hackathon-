@@ -8,8 +8,9 @@ const categoryOrderItemSchema = z.object({
 });
 
 export const upsertHomeBannerSettingZodSchema = z.object({
-  homeBanners: z.array(z.string().url()).max(3, "Home banners maximum is 3"),
-  recommendedBanners: z.array(z.string().url()).max(2, "Recommended banners maximum is 2"),
+  middleBanner: z.array(z.string().url()).min(1, "At least one middle banner is required").max(3, "Middle banners maximum is 3"),
+  sideBanner: z.array(z.string().url()).max(2, "Side banners maximum is 2").optional().default([]),
+  recommendedBanners: z.array(z.string().url()).max(2, "Recommended banners maximum is 2").optional().default([]),
 });
 
 export const createLogoSliderItemZodSchema = z.object({
