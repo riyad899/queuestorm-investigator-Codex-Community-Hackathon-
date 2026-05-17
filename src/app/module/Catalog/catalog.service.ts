@@ -4,6 +4,7 @@ import { prisma } from "../../lib/prisma.js";
 import {
   ICatalogFilterQuery,
   ICreateCategoryPayload,
+  ICreateCategoryBulkPayload,
   IUpdateCategoryPayload,
   ICreateProductPayload,
   ICreateSpecificationFieldPayload,
@@ -125,6 +126,87 @@ const createCategory = async (payload: ICreateCategoryPayload) => {
   });
 };
 
+const createCategoryBulk = async (payload: ICreateCategoryBulkPayload) => {
+  const normalized = payload.map((item) => {
+    const name = item.name.trim();
+    return {
+      name,
+      slug: slugify(name),
+      isFeatured: item.isFeatured ?? false,
+      icon: item.icon,
+      image: item.image,
+    };
+  });
+
+  const seenSlugs = new Set<string>();
+  const duplicateSlugs: string[] = [];
+  const uniqueItems = normalized.filter((item) => {
+    if (seenSlugs.has(item.slug)) {
+      duplicateSlugs.push(item.slug);
+      return false;
+    }
+
+    seenSlugs.add(item.slug);
+    return true;
+  });
+
+  if (uniqueItems.length === 0) {
+    return {
+      total: payload.length,
+      created: [],
+      skipped: {
+        existing: [],
+        duplicatesInPayload: duplicateSlugs,
+      },
+    };
+  }
+
+  const existing = await prisma.category.findMany({
+    where: {
+      slug: {
+        in: uniqueItems.map((item) => item.slug),
+      },
+    },
+    select: { slug: true },
+  });
+
+  const existingSlugs = new Set(existing.map((item) => item.slug));
+  const itemsToCreate = uniqueItems.filter((item) => !existingSlugs.has(item.slug));
+
+  if (itemsToCreate.length > 0) {
+    await prisma.category.createMany({
+      data: itemsToCreate.map((item) => ({
+        name: item.name,
+        slug: item.slug,
+        isFeatured: item.isFeatured,
+        icon: item.icon,
+        image: item.image,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  const created = itemsToCreate.length
+    ? await prisma.category.findMany({
+        where: {
+          slug: {
+            in: itemsToCreate.map((item) => item.slug),
+          },
+        },
+        orderBy: { name: "asc" },
+      })
+    : [];
+
+  return {
+    total: payload.length,
+    created,
+    skipped: {
+      existing: Array.from(existingSlugs),
+      duplicatesInPayload: duplicateSlugs,
+    },
+  };
+};
+
 const getCategories = async () => {
   const categories = await prisma.category.findMany({
     orderBy: { name: "asc" },
@@ -170,6 +252,22 @@ const updateCategory = async (id: string, payload: IUpdateCategoryPayload) => {
       ...(payload.image !== undefined ? { image: payload.image ?? null } : {}),
     },
   });
+};
+
+const deleteCategory = async (id: string) => {
+  const existing = await prisma.category.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    throw new AppError("Category not found", status.NOT_FOUND);
+  }
+
+  await prisma.category.delete({
+    where: { id },
+  });
+
+  return { deleted: true, id };
 };
 
 const createSubCategory = async (payload: ICreateSubCategoryPayload) => {
@@ -471,6 +569,7 @@ const getProducts = async (query: ICatalogFilterQuery) => {
   const searchTerm = typeof query.search === "string" ? query.search.trim() : undefined;
   const subCategoryId = query.subcategoryId ?? query.subCategoryId;
   const brandSlug = typeof query.brand === "string" ? query.brand.trim() : undefined;
+  const brandId = typeof query.brandId === "string" ? query.brandId.trim() : undefined;
   const isFeatured = getBooleanFilterValue(query.isFeatured);
   const priceMin = getNumberFilterValue(query.priceMin);
   const priceMax = getNumberFilterValue(query.priceMax);
@@ -483,6 +582,7 @@ const getProducts = async (query: ICatalogFilterQuery) => {
       key !== "subCategoryId" &&
       key !== "search" &&
       key !== "brand" &&
+      key !== "brandId" &&
       key !== "isFeatured" &&
       key !== "priceMin" &&
       key !== "priceMax" &&
@@ -500,6 +600,7 @@ const getProducts = async (query: ICatalogFilterQuery) => {
             },
           }
         : {}),
+      ...(brandId ? { brandId } : {}),
       ...(isFeatured !== undefined ? { isFeatured } : {}),
       ...((priceMin !== undefined || priceMax !== undefined)
         ? {
@@ -801,6 +902,16 @@ const deleteProduct = async (id: string) => {
   return { deleted: true, id };
 };
 
+const setCategoryFeatured = async (id: string, isFeatured: boolean) => {
+  const existing = await prisma.category.findUnique({ where: { id } });
+
+  if (!existing) {
+    throw new AppError("Category not found", status.NOT_FOUND);
+  }
+
+  return prisma.category.update({ where: { id }, data: { isFeatured } });
+};
+
 const getFeaturedProducts = async () => {
   const activeLatestOffer = await prisma.latestOffer.findFirst({
     where: {
@@ -922,6 +1033,7 @@ const getFieldOptions = async (fieldId: string) => {
 const getFilteredProductCount = async (query: ICatalogFilterQuery) => {
   const subCategoryId = query.subcategoryId ?? query.subCategoryId;
   const brandSlug = typeof query.brand === "string" ? query.brand.trim() : undefined;
+  const brandId = typeof query.brandId === "string" ? query.brandId.trim() : undefined;
   const isFeatured = getBooleanFilterValue(query.isFeatured);
   const priceMin = getNumberFilterValue(query.priceMin);
   const priceMax = getNumberFilterValue(query.priceMax);
@@ -930,6 +1042,7 @@ const getFilteredProductCount = async (query: ICatalogFilterQuery) => {
       key !== "subcategoryId" &&
       key !== "subCategoryId" &&
       key !== "brand" &&
+      key !== "brandId" &&
       key !== "isFeatured" &&
       key !== "priceMin" &&
       key !== "priceMax",
@@ -945,6 +1058,7 @@ const getFilteredProductCount = async (query: ICatalogFilterQuery) => {
             },
           }
         : {}),
+      ...(brandId ? { brandId } : {}),
       ...(isFeatured !== undefined ? { isFeatured } : {}),
       ...((priceMin !== undefined || priceMax !== undefined)
         ? {
@@ -1022,10 +1136,26 @@ const getFilteredProductCount = async (query: ICatalogFilterQuery) => {
   };
 };
 
+const setProductFeatured = async (id: string, isFeatured: boolean) => {
+  const existing = await prisma.product.findUnique({ where: { id } });
+
+  if (!existing) {
+    throw new AppError("Product not found", status.NOT_FOUND);
+  }
+
+  const updated = await prisma.product.update({ where: { id }, data: { isFeatured } });
+
+  await syncProductWithLatestOffer(id, isFeatured);
+
+  return updated;
+};
+
 export const CatalogService = {
   createCategory,
+  createCategoryBulk,
   getCategories,
   updateCategory,
+  deleteCategory,
   createSubCategory,
   getSubCategories,
   getSubCategoryById,
@@ -1045,4 +1175,6 @@ export const CatalogService = {
   getFilterOptions,
   getFieldOptions,
   getFilteredProductCount,
+  setCategoryFeatured,
+  setProductFeatured,
 };

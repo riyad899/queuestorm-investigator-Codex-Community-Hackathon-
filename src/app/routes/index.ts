@@ -13,6 +13,7 @@ import { ServiceCenterRoute } from '../module/ServiceCenter/serviceCenter.route.
 import { JobRoute } from '../module/Job/job.route.js';
 import { FooterSettingRoute } from '../module/FooterSetting/footerSetting.route.js';
 import { IconsRoute } from '../module/Icons/icons.route.js';
+import { CartRoute } from '../module/Cart/cart.route.js';
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use("/", ServiceCenterRoute);
 router.use("/", JobRoute);
 router.use("/footer-setting", FooterSettingRoute);
 router.use("/icons", IconsRoute);
+router.use("/", CartRoute);
 
 export const IndexRoute = router;

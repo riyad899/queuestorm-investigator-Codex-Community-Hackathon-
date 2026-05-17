@@ -6,6 +6,8 @@ import {
   IHomeBannerSettingPayload,
   IHomeLogoSliderItemPayload,
   IHomeLogoSliderItemUpdatePayload,
+  IPopularCategoryItemPayload,
+  IPopularCategoryUpdatePayload,
   IPopularCategoryPayload,
   IRecommendedCategoryPayload,
   ISiteThemePayload,
@@ -267,6 +269,68 @@ const setPopularCategories = async (payload: IPopularCategoryPayload) => {
   });
 };
 
+const addPopularCategory = async (payload: IPopularCategoryItemPayload) => {
+  await ensureCategoriesExist([payload.categoryId]);
+
+  const existing = await prisma.popularCategory.findUnique({
+    where: { categoryId: payload.categoryId },
+  });
+
+  if (existing) {
+    return prisma.popularCategory.update({
+      where: { categoryId: payload.categoryId },
+      data: {
+        ...(payload.sortOrder !== undefined ? { sortOrder: payload.sortOrder } : {}),
+      },
+      include: { category: true },
+    });
+  }
+
+  const nextSortOrder = payload.sortOrder ?? (await prisma.popularCategory.count());
+
+  return prisma.popularCategory.create({
+    data: {
+      categoryId: payload.categoryId,
+      sortOrder: nextSortOrder,
+    },
+    include: { category: true },
+  });
+};
+
+const updatePopularCategory = async (categoryId: string, payload: IPopularCategoryUpdatePayload) => {
+  const existing = await prisma.popularCategory.findUnique({
+    where: { categoryId },
+  });
+
+  if (!existing) {
+    throw new AppError("Popular category not found", status.NOT_FOUND);
+  }
+
+  return prisma.popularCategory.update({
+    where: { categoryId },
+    data: {
+      ...(payload.sortOrder !== undefined ? { sortOrder: payload.sortOrder } : {}),
+    },
+    include: { category: true },
+  });
+};
+
+const deletePopularCategory = async (categoryId: string) => {
+  const existing = await prisma.popularCategory.findUnique({
+    where: { categoryId },
+  });
+
+  if (!existing) {
+    throw new AppError("Popular category not found", status.NOT_FOUND);
+  }
+
+  await prisma.popularCategory.delete({
+    where: { categoryId },
+  });
+
+  return { deleted: true, categoryId };
+};
+
 const getPopularCategories = async () => {
   return prisma.popularCategory.findMany({
     include: { category: true },
@@ -367,8 +431,11 @@ export const HomeSettingService = {
   getActiveTheme,
   setFeaturedCategories,
   getFeaturedCategories,
+  addPopularCategory,
   setPopularCategories,
   getPopularCategories,
+  updatePopularCategory,
+  deletePopularCategory,
   setRecommendedCategories,
   getRecommendedCategories,
   createTestimonial,

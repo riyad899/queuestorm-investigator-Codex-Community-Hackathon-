@@ -5,9 +5,11 @@ import {
   createLogoSliderItemZodSchema,
   createSiteThemeZodSchema,
   createTestimonialZodSchema,
+  popularCategoryItemZodSchema,
   setFeaturedCategoriesZodSchema,
   setPopularCategoriesZodSchema,
   setRecommendedCategoriesZodSchema,
+  updatePopularCategoryZodSchema,
   updateLogoSliderItemZodSchema,
   updateSiteThemeZodSchema,
   updateTestimonialZodSchema,
@@ -38,6 +40,13 @@ router.get("/featured-categories", HomeSettingController.getFeaturedCategories);
 router.patch("/featured-categories", validateZodSchema(setFeaturedCategoriesZodSchema), HomeSettingController.setFeaturedCategories);
 
 router.get("/popular-categories", HomeSettingController.getPopularCategories);
+router.post("/popular-categories", validateZodSchema(popularCategoryItemZodSchema), HomeSettingController.addPopularCategory);
+router.patch(
+  "/popular-categories/:categoryId",
+  validateZodSchema(updatePopularCategoryZodSchema),
+  HomeSettingController.updatePopularCategory,
+);
+router.delete("/popular-categories/:categoryId", HomeSettingController.deletePopularCategory);
 router.put("/popular-categories", validateZodSchema(setPopularCategoriesZodSchema), HomeSettingController.setPopularCategories);
 
 router.get("/recommended-categories", HomeSettingController.getRecommendedCategories);

@@ -15,6 +15,17 @@ const createCategory = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const createCategoryBulk = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.createCategoryBulk(req.body);
+
+  sendResponse(res, {
+    httpStatus: status.CREATED,
+    success: true,
+    message: "Categories created successfully",
+    data: result,
+  });
+});
+
 const getCategories = catchAsync(async (_req: Request, res: Response) => {
   const result = await CatalogService.getCategories();
 
@@ -33,6 +44,39 @@ const updateCategory = catchAsync(async (req: Request, res: Response) => {
     httpStatus: status.OK,
     success: true,
     message: "Category updated successfully",
+    data: result,
+  });
+});
+
+const deleteCategory = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.deleteCategory(String(req.params.id));
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Category deleted successfully",
+    data: result,
+  });
+});
+
+const featureCategory = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.setCategoryFeatured(String(req.params.id), true);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Category marked as featured",
+    data: result,
+  });
+});
+
+const unfeatureCategory = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.setCategoryFeatured(String(req.params.id), false);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Category unmarked as featured",
     data: result,
   });
 });
@@ -259,6 +303,28 @@ const deleteProduct = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const featureProduct = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.setProductFeatured(String(req.params.id), true);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Product marked as featured",
+    data: result,
+  });
+});
+
+const unfeatureProduct = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.setProductFeatured(String(req.params.id), false);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Product unmarked as featured",
+    data: result,
+  });
+});
+
 const getFilterOptions = catchAsync(async (req: Request, res: Response) => {
   const subcategoryId = req.query.subcategoryId as string | undefined;
 
@@ -305,8 +371,10 @@ const getFilteredProductCount = catchAsync(async (req: Request, res: Response) =
 
 export const CatalogController = {
   createCategory,
+  createCategoryBulk,
   getCategories,
   updateCategory,
+  deleteCategory,
   createSubCategory,
   getSubCategories,
   getSubCategoryById,
@@ -325,4 +393,8 @@ export const CatalogController = {
   getFilterOptions,
   getFieldOptions,
   getFilteredProductCount,
+  featureCategory,
+  unfeatureCategory,
+  featureProduct,
+  unfeatureProduct,
 };

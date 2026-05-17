@@ -5,6 +5,8 @@ export interface ICreateCategoryPayload {
   image?: string;
 }
 
+export type ICreateCategoryBulkPayload = ICreateCategoryPayload[];
+
 export interface IUpdateCategoryPayload {
   name?: string;
   isFeatured?: boolean;
@@ -67,6 +69,7 @@ export interface IUpdateProductPayload {
 export interface ICatalogFilterQuery {
   subcategoryId?: string;
   subCategoryId?: string;
+  brandId?: string;
   priceMin?: string;
   priceMax?: string;
   page?: string;

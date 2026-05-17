@@ -180,6 +180,39 @@ const getPopularCategories = catchAsync(async (_req: Request, res: Response) => 
   });
 });
 
+const addPopularCategory = catchAsync(async (req: Request, res: Response) => {
+  const result = await HomeSettingService.addPopularCategory(req.body);
+
+  sendResponse(res, {
+    httpStatus: status.CREATED,
+    success: true,
+    message: "Popular category added successfully",
+    data: result,
+  });
+});
+
+const updatePopularCategory = catchAsync(async (req: Request, res: Response) => {
+  const result = await HomeSettingService.updatePopularCategory(String(req.params.categoryId), req.body);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Popular category updated successfully",
+    data: result,
+  });
+});
+
+const deletePopularCategory = catchAsync(async (req: Request, res: Response) => {
+  const result = await HomeSettingService.deletePopularCategory(String(req.params.categoryId));
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Popular category removed successfully",
+    data: result,
+  });
+});
+
 const setRecommendedCategories = catchAsync(async (req: Request, res: Response) => {
   const result = await HomeSettingService.setRecommendedCategories(req.body);
 
@@ -263,6 +296,9 @@ export const HomeSettingController = {
   getFeaturedCategories,
   setPopularCategories,
   getPopularCategories,
+  addPopularCategory,
+  updatePopularCategory,
+  deletePopularCategory,
   setRecommendedCategories,
   getRecommendedCategories,
   createTestimonial,

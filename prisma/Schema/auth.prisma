@@ -20,6 +20,7 @@ model User {
 
   orders                          Order[]
   customerNotificationSetting     CustomerNotificationSetting?
+  cart                            Cart?
 
   customer     Customer?
   staff        Staff?

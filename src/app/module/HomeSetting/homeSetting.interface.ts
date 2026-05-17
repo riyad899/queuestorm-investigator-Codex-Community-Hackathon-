@@ -59,6 +59,15 @@ export interface IPopularCategoryPayload {
   items: ICategoryOrderItem[];
 }
 
+export interface IPopularCategoryItemPayload {
+  categoryId: string;
+  sortOrder?: number;
+}
+
+export interface IPopularCategoryUpdatePayload {
+  sortOrder?: number;
+}
+
 export interface IRecommendedCategoryPayload {
   items: ICategoryOrderItem[];
 }

@@ -3,6 +3,7 @@ import { CatalogController } from "./catalog.controller.js";
 import { validateZodSchema } from "../../../middleware/validateReq.js";
 import {
   createCategoryZodSchema,
+  createCategoryBulkZodSchema,
   updateCategoryZodSchema,
   createProductZodSchema,
   createSpecificationFieldZodSchema,
@@ -14,8 +15,16 @@ import {
 const router = Router();
 
 router.post("/category", validateZodSchema(createCategoryZodSchema), CatalogController.createCategory);
+router.post(
+  "/category/bulk",
+  validateZodSchema(createCategoryBulkZodSchema),
+  CatalogController.createCategoryBulk,
+);
 router.get("/category", CatalogController.getCategories);
 router.patch("/category/:id", validateZodSchema(updateCategoryZodSchema), CatalogController.updateCategory);
+router.delete("/category/:id", CatalogController.deleteCategory);
+router.put("/category/:id/feature", CatalogController.featureCategory);
+router.put("/category/:id/unfeature", CatalogController.unfeatureCategory);
 
 router.post("/subcategory", validateZodSchema(createSubCategoryZodSchema), CatalogController.createSubCategory);
 router.get("/subcategory", CatalogController.getSubCategories);
@@ -34,6 +43,8 @@ router.get("/product/suggestions", CatalogController.getProductSuggestions);
 router.get("/product/:id", CatalogController.getProductById);
 router.patch("/product/:id", validateZodSchema(updateProductZodSchema), CatalogController.updateProduct);
 router.delete("/product/:id", CatalogController.deleteProduct);
+router.put("/product/:id/feature", CatalogController.featureProduct);
+router.put("/product/:id/unfeature", CatalogController.unfeatureProduct);
 
 router.get("/filter-options", CatalogController.getFilterOptions);
 router.get("/field-options/:fieldId", CatalogController.getFieldOptions);

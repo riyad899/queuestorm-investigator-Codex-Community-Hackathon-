@@ -12,6 +12,10 @@ export const createCategoryZodSchema = z.object({
   image: z.string().url().optional(),
 });
 
+export const createCategoryBulkZodSchema = z
+  .array(createCategoryZodSchema)
+  .min(1, "At least one category is required");
+
 export const updateCategoryZodSchema = z.object({
   name: z.string().min(1).optional(),
   isFeatured: z.boolean().optional(),

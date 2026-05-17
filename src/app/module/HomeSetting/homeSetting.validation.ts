@@ -7,6 +7,14 @@ const categoryOrderItemSchema = z.object({
   sortOrder: z.number().int().nonnegative().optional(),
 });
 
+export const popularCategoryItemZodSchema = categoryOrderItemSchema;
+
+export const updatePopularCategoryZodSchema = z.object({
+  sortOrder: z.number().int().nonnegative().optional(),
+}).refine((value) => Object.keys(value).length > 0, {
+  message: "At least one popular category field is required for update",
+});
+
 export const upsertHomeBannerSettingZodSchema = z.object({
   middleBanner: z.array(z.string().url()).min(1, "At least one middle banner is required").max(3, "Middle banners maximum is 3"),
   sideBanner: z.array(z.string().url()).max(2, "Side banners maximum is 2").optional().default([]),
