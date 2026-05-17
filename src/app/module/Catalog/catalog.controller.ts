@@ -270,6 +270,19 @@ const getProductSuggestions = catchAsync(async (req: Request, res: Response) => 
   res.status(status.OK).json(result);
 });
 
+const getRecommendedProducts = catchAsync(async (req: Request, res: Response) => {
+  const search = typeof req.query.search === "string" ? req.query.search : "";
+  const limit = Number(req.query.limit ?? 3) || 3;
+  const result = await CatalogService.getRecommendedProducts(search, Math.max(1, Math.min(20, limit)));
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Recommended products fetched successfully",
+    data: result,
+  });
+});
+
 const getProductById = catchAsync(async (req: Request, res: Response) => {
   const result = await CatalogService.getProductById(String(req.params.id));
 
@@ -388,6 +401,7 @@ export const CatalogController = {
   getFeaturedProducts,
   getProductSuggestions,
   getProductById,
+  getRecommendedProducts,
   updateProduct,
   deleteProduct,
   getFilterOptions,

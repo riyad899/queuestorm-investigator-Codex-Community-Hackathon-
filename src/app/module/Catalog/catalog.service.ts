@@ -738,6 +738,34 @@ const getProductSuggestions = async (search: string) => {
   });
 };
 
+const getRecommendedProducts = async (search: string, limit = 3) => {
+  const searchTerm = search.trim();
+
+  if (!searchTerm) {
+    return [];
+  }
+
+  return prisma.product.findMany({
+    where: {
+      title: {
+        contains: searchTerm,
+        mode: "insensitive",
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: Math.max(1, Math.min(20, limit)),
+    select: {
+      id: true,
+      title: true,
+      price: true,
+      discountPrice: true,
+      images: true,
+      brand: { select: { id: true, name: true, slug: true } },
+      subCategory: { select: { id: true, name: true, category: { select: { id: true, name: true } } } },
+    },
+  });
+};
+
 const getProductById = async (id: string) => {
   const product = await prisma.product.findUnique({
     where: { id },
@@ -1168,6 +1196,7 @@ export const CatalogService = {
   createProduct,
   getProducts,
   getProductSuggestions,
+  getRecommendedProducts,
   getFeaturedProducts,
   getProductById,
   updateProduct,

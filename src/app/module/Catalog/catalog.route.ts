@@ -40,6 +40,7 @@ router.post("/product", validateZodSchema(createProductZodSchema), CatalogContro
 router.get("/product", CatalogController.getProducts);
 router.get("/product/featured", CatalogController.getFeaturedProducts);
 router.get("/product/suggestions", CatalogController.getProductSuggestions);
+router.get("/product/recommendations", CatalogController.getRecommendedProducts);
 router.get("/product/:id", CatalogController.getProductById);
 router.patch("/product/:id", validateZodSchema(updateProductZodSchema), CatalogController.updateProduct);
 router.delete("/product/:id", CatalogController.deleteProduct);

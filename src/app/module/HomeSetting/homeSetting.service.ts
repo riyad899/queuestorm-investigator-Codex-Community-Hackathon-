@@ -420,6 +420,7 @@ const deleteTestimonial = async (id: string) => {
 export const HomeSettingService = {
   getBannerSetting,
   upsertBannerSetting,
+  createBannerSetting,
   createLogoSliderItem,
   getLogoSliderItems,
   updateLogoSliderItem,
