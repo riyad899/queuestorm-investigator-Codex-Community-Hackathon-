@@ -38,6 +38,17 @@ export const getOrderById = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+export const getCustomerOrderById = catchAsync(async (req: Request, res: Response) => {
+  const result = await orderService.getCustomerOrderById(String(req.params.id));
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Customer order fetched successfully",
+    data: result,
+  });
+});
+
 export const updateOrderPayment = catchAsync(async (req: Request, res: Response) => {
   const result = await orderService.updateOrderPayment(String(req.params.id), req.body);
 

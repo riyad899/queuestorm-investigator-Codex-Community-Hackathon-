@@ -159,6 +159,89 @@ export const getOrderById = async (id: string) => {
   return order;
 };
 
+export const getCustomerOrderById = async (id: string) => {
+  const order = await prisma.order.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      address: true,
+      upazilaThana: true,
+      district: true,
+      mobile: true,
+      email: true,
+      comment: true,
+      paymentMethodKey: true,
+      deliveryMethodKey: true,
+      couponCodeSnapshot: true,
+      discountAmount: true,
+      subTotal: true,
+      deliveryFee: true,
+      total: true,
+      paymentStatus: true,
+      deliveryStatus: true,
+      paidAt: true,
+      deliveredAt: true,
+      createdAt: true,
+      updatedAt: true,
+      items: {
+        select: {
+          id: true,
+          productTitle: true,
+          unitPrice: true,
+          quantity: true,
+          lineTotal: true,
+          productId: true,
+          product: {
+            select: {
+              id: true,
+              title: true,
+              price: true,
+              discountPrice: true,
+              images: true,
+              isFeatured: true,
+              brand: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+              subCategory: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: {
+                    select: {
+                      id: true,
+                      name: true,
+                      slug: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      coupon: {
+        select: {
+          id: true,
+          code: true,
+          title: true,
+        },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new AppError("Order not found", status.NOT_FOUND);
+  }
+
+  return order;
+};
+
 export const updateOrderPayment = async (id: string, payload: IUpdateOrderPaymentPayload) => {
   const existing = await prisma.order.findUnique({ where: { id } });
   if (!existing) {

@@ -17,15 +17,13 @@ router.post("/coupon/validate", validateZodSchema(validateCouponZodSchema), coup
 // Dashboard coupon management
 router.post(
   "/coupon",
-  checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF),
   validateZodSchema(createCouponZodSchema),
   couponController.createCoupon,
 );
-router.get("/coupon", checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF), couponController.getCoupons);
-router.get("/coupon/:id", checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF), couponController.getCouponById);
+router.get("/coupon", couponController.getCoupons);
+router.get("/coupon/:id", couponController.getCouponById);
 router.patch(
   "/coupon/:id",
-  checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF),
   validateZodSchema(updateCouponZodSchema),
   couponController.updateCoupon,
 );

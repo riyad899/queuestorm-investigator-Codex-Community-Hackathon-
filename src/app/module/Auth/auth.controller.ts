@@ -73,6 +73,22 @@ const getMe = catchAsync(async (req, res) => {
   });
 });
 
+const getMyCustomerProfile = catchAsync(async (req, res) => {
+  const user = req.user;
+  if (!user) {
+    throw new AppError("Unauthorized access! User not found in request.", status.UNAUTHORIZED);
+  }
+
+  const result = await authService.getMyCustomerProfile(user.userId);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Customer profile retrieved successfully",
+    data: result,
+  });
+});
+
 const getRole = catchAsync(async (req, res) => {
   const user = req.user;
   if (!user) {
@@ -98,8 +114,19 @@ const updateCustomer = catchAsync(async (req, res) => {
   if (Number.isNaN(id)) {
     throw new AppError("Invalid customer id", status.BAD_REQUEST);
   }
-  const data = await authService.updateCustomer(id, req.body);
-  sendResponse(res, { httpStatus: status.OK, success: true, message: "Customer updated successfully", data });
+  const user = req.user;
+  if (!user) {
+    throw new AppError("Unauthorized access! User not found in request.", status.UNAUTHORIZED);
+  }
+
+  const data = await authService.updateCustomerById(id, req.body, user);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Customer updated successfully",
+    data,
+  });
 });
 
 const getNewToken = catchAsync(async (req: Request, res: Response) => {
@@ -284,7 +311,7 @@ const requestPasswordResetOTP = catchAsync(async (req: Request, res: Response) =
 });
 
 export const AuthController = {
-  register, LoginUser, updateCustomer, getMe, getRole, getNewToken, changePassword,
+  register, LoginUser, updateCustomer, getMe, getMyCustomerProfile, getRole, getNewToken, changePassword,
   logoutUser, verifyEmail, forgetPassword, resetPassword, googleLogin, googleLoginSuccess, handleOAuthError,
   requestEmailVerificationOTP, requestPasswordResetOTP,
 };

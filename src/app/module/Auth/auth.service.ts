@@ -8,6 +8,7 @@ import status from "http-status";
 import AppError from "../../errorHelpers/appError.js";
 import { tokenUtils } from "../../utils/token.js";
 import { IchanegPasswordPayload } from "./auth.interface.js";
+import { IRequestUser } from "../../interfaces/requestUser.interface.js";
 import { jwtUtils } from "../../utils/jwt.js";
 import { envVars } from "../../../config/env.js";
 import { JwtPayload } from "jsonwebtoken";
@@ -147,6 +148,78 @@ const updateCustomer = async (id: number, payload: IUpdateCustomerPayload) => {
     if (customerExist.user?.id) {
       await tx.user.update({ where: { id: customerExist.user.id }, data: { name: payload.name, email: payload.email } });
     }
+    return customer;
+  });
+
+  return updatedCustomer;
+};
+
+const getMyCustomerProfile = async (userId: string) => {
+  const customer = await prisma.customer.findUnique({
+    where: { userID: userId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          status: true,
+          isdeleted: true,
+          emailVerified: true,
+        },
+      },
+    },
+  });
+
+  if (!customer) throw new AppError("Customer not found", status.NOT_FOUND);
+  if (customer.isDeleted) throw new AppError("Cannot access a deleted customer profile", status.BAD_REQUEST);
+
+  return customer;
+};
+
+const updateCustomerById = async (id: number, payload: IUpdateCustomerPayload, requester: IRequestUser) => {
+  const customerExist = await prisma.customer.findUnique({
+    where: { id },
+    include: { user: { select: { id: true } } },
+  });
+
+  if (!customerExist) throw new AppError("Customer not found", status.NOT_FOUND);
+  if (customerExist.isDeleted) throw new AppError("Cannot update a deleted customer", status.BAD_REQUEST);
+  if (customerExist.user?.id !== requester.userId) {
+    throw new AppError("You can only update your own customer profile", status.FORBIDDEN);
+  }
+
+  if (payload.email) {
+    const emailAlreadyInUse = await prisma.customer.findFirst({
+      where: { email: payload.email, id: { not: id } },
+      select: { id: true },
+    });
+    if (emailAlreadyInUse) throw new AppError("Customer email already exists", status.CONFLICT);
+  }
+
+  const updatedCustomer = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const customer = await tx.customer.update({
+      where: { id },
+      data: {
+        ...(payload.name !== undefined ? { name: payload.name } : {}),
+        ...(payload.email !== undefined ? { email: payload.email } : {}),
+        ...(payload.age !== undefined ? { age: payload.age } : {}),
+        ...(payload.address !== undefined ? { address: payload.address?.trim() } : {}),
+        ...(payload.contact !== undefined ? { contact: payload.contact } : {}),
+      },
+    });
+
+    if (customerExist.user?.id) {
+      await tx.user.update({
+        where: { id: customerExist.user.id },
+        data: {
+          ...(payload.name !== undefined ? { name: payload.name } : {}),
+          ...(payload.email !== undefined ? { email: payload.email } : {}),
+        },
+      });
+    }
+
     return customer;
   });
 
@@ -406,7 +479,7 @@ const requestPasswordResetOTPDirect = async (email: string) => {
 };
 
 export const authService = {
-  register, LoginUser, updateCustomer, changePassword, getNewToken, getMe,
+  register, LoginUser, updateCustomer, getMyCustomerProfile, updateCustomerById, changePassword, getNewToken, getMe,
   logoutUser, verifyEmail, forgetPassword, resetPassword, googleLoginSuccess,
   requestEmailVerificationOTP, requestPasswordResetOTPDirect,
 };

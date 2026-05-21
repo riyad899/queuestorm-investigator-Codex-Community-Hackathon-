@@ -13,6 +13,7 @@ const router = Router();
 
 // Checkout (public)
 router.post("/order", validateZodSchema(createOrderZodSchema), orderController.createOrder);
+router.get("/order/:id/track", orderController.getCustomerOrderById);
 
 // Dashboard (protected)
 router.get("/order", checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF), orderController.getOrders);

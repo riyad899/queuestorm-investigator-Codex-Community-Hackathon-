@@ -7,19 +7,13 @@ import { addCartItemZodSchema, updateCartItemZodSchema } from "./cart.validation
 
 const router = Router();
 
-router.get("/cart", checkAuth(Role.CUSTOMER), CartController.getCart);
-router.post(
-  "/cart/items",
-  checkAuth(Role.CUSTOMER),
-  validateZodSchema(addCartItemZodSchema),
-  CartController.addItem,
-);
+router.get("/cart", CartController.getCart);
+router.post("/cart/items", validateZodSchema(addCartItemZodSchema), CartController.addItem);
 router.patch(
   "/cart/items/:productId",
-  checkAuth(Role.CUSTOMER),
   validateZodSchema(updateCartItemZodSchema),
   CartController.updateItem,
 );
-router.delete("/cart/items/:productId", checkAuth(Role.CUSTOMER), CartController.removeItem);
+router.delete("/cart/items/:productId", CartController.removeItem);
 
 export const CartRoute = router;

@@ -11,32 +11,32 @@ import {
 const router = Router();
 
 router.get(
-  "/customers",
+  "/",
   checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF),
   customerManagementController.getCustomers,
 );
 
 router.get(
-  "/customers/latest",
+  "/latest",
   checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF),
   customerManagementController.getLatestCustomers,
 );
 
 router.get(
-  "/customers/:id",
+  "/:id",
   checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF),
   customerManagementController.getCustomerById,
 );
 
 router.patch(
-  "/customers/:id/status",
+  "/:id/status",
   checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF),
   validateZodSchema(updateCustomerStatusZodSchema),
   customerManagementController.updateCustomerStatus,
 );
 
 router.patch(
-  "/customers/:id/role",
+  "/:id/role",
   checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF),
   validateZodSchema(updateCustomerRoleZodSchema),
   customerManagementController.updateCustomerRole,

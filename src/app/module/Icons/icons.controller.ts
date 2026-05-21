@@ -39,3 +39,53 @@ export const getAllIcons = catchAsync(async (_req: Request, res: Response) => {
     data: result,
   });
 });
+
+export const getIconById = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await IconsService.getIconById(id);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Icon fetched successfully",
+    data: result,
+  });
+});
+
+export const deleteIconById = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await IconsService.deleteIconById(id);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Icon deleted successfully",
+    data: result,
+  });
+});
+
+export const updateIconById = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const payload = req.body as { name?: string; svg?: string };
+  const result = await IconsService.updateIconById(id, payload);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Icon updated successfully",
+    data: result,
+  });
+});
+
+export const replaceIconById = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const payload = req.body as { name: string; svg: string };
+  const result = await IconsService.replaceIconById(id, payload);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Icon replaced successfully",
+    data: result,
+  });
+});
