@@ -1,7 +1,7 @@
-import AppError from "../../errorHelpers/appError";
-import { prisma } from "../../lib/prisma";
+import AppError from "../../errorHelpers/appError.js";
+import { prisma } from "../../lib/prisma.js";
 
-import { ICreateBlogCategoryPayload, ICreateAuthorPayload, ICreateBlogPayload, IUpdateBlogPayload } from "./blog.interface";
+import { ICreateBlogCategoryPayload, ICreateAuthorPayload, ICreateBlogPayload, IUpdateBlogPayload } from "./blog.interface.js";
 
 export class BlogService {
   // Blog Category Methods

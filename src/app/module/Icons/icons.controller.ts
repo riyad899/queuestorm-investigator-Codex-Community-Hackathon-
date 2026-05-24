@@ -41,7 +41,7 @@ export const getAllIcons = catchAsync(async (_req: Request, res: Response) => {
 });
 
 export const getIconById = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const result = await IconsService.getIconById(id);
 
   sendResponse(res, {
@@ -53,7 +53,7 @@ export const getIconById = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const deleteIconById = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const result = await IconsService.deleteIconById(id);
 
   sendResponse(res, {
@@ -65,7 +65,7 @@ export const deleteIconById = catchAsync(async (req: Request, res: Response) => 
 });
 
 export const updateIconById = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const payload = req.body as { name?: string; svg?: string };
   const result = await IconsService.updateIconById(id, payload);
 
@@ -78,7 +78,7 @@ export const updateIconById = catchAsync(async (req: Request, res: Response) => 
 });
 
 export const replaceIconById = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const payload = req.body as { name: string; svg: string };
   const result = await IconsService.replaceIconById(id, payload);
 

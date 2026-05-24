@@ -7,4 +7,5 @@ model SubCategory {
 
   specificationGroups SpecificationGroup[]
   products            Product[]
+  productSubCategories ProductSubCategory[]
 }

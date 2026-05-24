@@ -24,12 +24,17 @@ export interface ICreateSpecificationGroupPayload {
   subCategoryId: string;
 }
 
+export type ICreateSpecificationGroupBulkPayload = ICreateSpecificationGroupPayload[];
+
 export interface ICreateSpecificationFieldPayload {
   name: string;
   groupId: string;
   type?: string;
   options?: string[];
+  isFeatured?: boolean;
 }
+
+export type ICreateSpecificationFieldBulkPayload = ICreateSpecificationFieldPayload[];
 
 export interface ICreateProductSpecificationPayload {
   fieldId: string;
@@ -38,6 +43,7 @@ export interface ICreateProductSpecificationPayload {
 
 export interface ICreateProductPayload {
   title: string;
+  description?: string;
   price: number;
   discountPrice?: number;
   quantity?: number;
@@ -48,11 +54,15 @@ export interface ICreateProductPayload {
   images?: string[];
   isFeatured?: boolean;
   subCategoryId: string;
+  subCategoryIds?: string[];
   specifications?: ICreateProductSpecificationPayload[];
 }
 
+export type ICreateProductBulkPayload = ICreateProductPayload[];
+
 export interface IUpdateProductPayload {
   title?: string;
+  description?: string | null;
   price?: number;
   discountPrice?: number | null;
   quantity?: number;
@@ -63,6 +73,7 @@ export interface IUpdateProductPayload {
   images?: string[];
   isFeatured?: boolean;
   subCategoryId?: string;
+  subCategoryIds?: string[];
   specifications?: ICreateProductSpecificationPayload[];
 }
 

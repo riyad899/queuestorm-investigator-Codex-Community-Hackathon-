@@ -6,9 +6,12 @@ import {
   ICreateCategoryPayload,
   ICreateCategoryBulkPayload,
   IUpdateCategoryPayload,
+  ICreateProductBulkPayload,
   ICreateProductPayload,
   ICreateSpecificationFieldPayload,
+  ICreateSpecificationFieldBulkPayload,
   ICreateSpecificationGroupPayload,
+  ICreateSpecificationGroupBulkPayload,
   ICreateSubCategoryPayload,
   IUpdateProductPayload,
 } from "./catalog.interface.js";
@@ -58,6 +61,46 @@ const getNumberFilterValue = (value: string | string[] | undefined) => {
   const parsedValue = Number(filterValue);
   return Number.isFinite(parsedValue) ? parsedValue : undefined;
 };
+
+const normalizeSubCategoryIds = (primarySubCategoryId: string, subCategoryIds?: string[]) => {
+  const normalizedIds = new Set<string>([primarySubCategoryId]);
+
+  for (const subCategoryId of subCategoryIds ?? []) {
+    const trimmedSubCategoryId = subCategoryId.trim();
+    if (trimmedSubCategoryId) {
+      normalizedIds.add(trimmedSubCategoryId);
+    }
+  }
+
+  return [...normalizedIds];
+};
+
+const getExtraSubCategoryIds = (primarySubCategoryId: string, subCategoryIds?: string[]) =>
+  normalizeSubCategoryIds(primarySubCategoryId, subCategoryIds).filter((subCategoryId) => subCategoryId !== primarySubCategoryId);
+
+const validateSubCategoryIdsExist = async (subCategoryIds: string[]) => {
+  if (subCategoryIds.length === 0) {
+    return;
+  }
+
+  const existingSubCategories = await prisma.subCategory.findMany({
+    where: { id: { in: subCategoryIds } },
+    select: { id: true },
+  });
+
+  if (existingSubCategories.length !== subCategoryIds.length) {
+    const existingIds = new Set(existingSubCategories.map((subCategory) => subCategory.id));
+    const missingSubCategoryId = subCategoryIds.find((subCategoryId) => !existingIds.has(subCategoryId));
+    throw new AppError(`Subcategory not found: ${missingSubCategoryId ?? "unknown"}`, status.NOT_FOUND);
+  }
+};
+
+const buildProductSubCategoryWhere = (subCategoryId?: string) =>
+  subCategoryId
+    ? {
+        OR: [{ subCategoryId }, { productSubCategories: { some: { subCategoryId } } }],
+      }
+    : {};
 
 const syncProductWithLatestOffer = async (productId: string, isFeatured: boolean) => {
   const activeLatestOffer = await prisma.latestOffer.findFirst({
@@ -347,6 +390,75 @@ const createSpecificationGroup = async (payload: ICreateSpecificationGroupPayloa
   });
 };
 
+const createSpecificationGroupBulk = async (payload: ICreateSpecificationGroupBulkPayload) => {
+  const normalized = payload.map((item) => ({
+    name: item.name.trim(),
+    subCategoryId: item.subCategoryId,
+  }));
+
+  const seenKeys = new Set<string>();
+  const duplicateKeys: string[] = [];
+  const uniqueItems = normalized.filter((item) => {
+    const key = `${item.subCategoryId}::${item.name.toLowerCase()}`;
+    if (seenKeys.has(key)) {
+      duplicateKeys.push(key);
+      return false;
+    }
+    seenKeys.add(key);
+    return true;
+  });
+
+  if (uniqueItems.length === 0) {
+    return {
+      total: payload.length,
+      created: [],
+      skipped: {
+        existing: [],
+        duplicatesInPayload: duplicateKeys,
+      },
+    };
+  }
+
+  const existing = await prisma.specificationGroup.findMany({
+    where: {
+      OR: uniqueItems.map((item) => ({
+        subCategoryId: item.subCategoryId,
+        name: { equals: item.name, mode: "insensitive" },
+      })),
+    },
+    select: { subCategoryId: true, name: true },
+  });
+
+  const existingKeys = new Set(existing.map((e) => `${e.subCategoryId}::${e.name.toLowerCase()}`));
+
+  const itemsToCreate = uniqueItems.filter((item) => !existingKeys.has(`${item.subCategoryId}::${item.name.toLowerCase()}`));
+
+  if (itemsToCreate.length > 0) {
+    await prisma.specificationGroup.createMany({
+      data: itemsToCreate.map((it) => ({ name: it.name, subCategoryId: it.subCategoryId })),
+      skipDuplicates: true,
+    });
+  }
+
+  const created = itemsToCreate.length
+    ? await prisma.specificationGroup.findMany({
+        where: {
+          OR: itemsToCreate.map((item) => ({ subCategoryId: item.subCategoryId, name: item.name })),
+        },
+        orderBy: { name: "asc" },
+      })
+    : [];
+
+  return {
+    total: payload.length,
+    created,
+    skipped: {
+      existing: Array.from(existingKeys),
+      duplicatesInPayload: duplicateKeys,
+    },
+  };
+};
+
 const createSpecificationField = async (payload: ICreateSpecificationFieldPayload) => {
   const group = await prisma.specificationGroup.findUnique({
     where: { id: payload.groupId },
@@ -362,22 +474,142 @@ const createSpecificationField = async (payload: ICreateSpecificationFieldPayloa
       groupId: payload.groupId,
       type: payload.type?.trim().toLowerCase() || "text",
       options: payload.options ?? [],
+      isFeatured: payload.isFeatured ?? false,
     },
   });
 };
 
-const getSpecificationGroups = async (subCategoryId: string) => {
-  const subCategory = await prisma.subCategory.findUnique({
-    where: { id: subCategoryId },
+const createSpecificationFieldBulk = async (payload: ICreateSpecificationFieldBulkPayload) => {
+  const normalized = payload.map((item) => ({
+    name: item.name.trim(),
+    groupId: item.groupId.trim(),
+    type: item.type?.trim().toLowerCase() || "text",
+    options: item.options ?? [],
+    isFeatured: item.isFeatured ?? false,
+  }));
+
+  const seenKeys = new Set<string>();
+  const duplicateKeys: string[] = [];
+  const uniqueItems = normalized.filter((item) => {
+    const key = `${item.groupId}::${item.name.toLowerCase()}`;
+    if (seenKeys.has(key)) {
+      duplicateKeys.push(key);
+      return false;
+    }
+    seenKeys.add(key);
+    return true;
   });
 
-  if (!subCategory) {
-    throw new AppError("Subcategory not found", status.NOT_FOUND);
+  if (uniqueItems.length === 0) {
+    return {
+      total: payload.length,
+      created: [],
+      skipped: {
+        invalidGroups: [],
+        duplicatesInPayload: duplicateKeys,
+      },
+    };
+  }
+
+  const groupIds = [...new Set(uniqueItems.map((item) => item.groupId))];
+  const existingGroups = await prisma.specificationGroup.findMany({
+    where: { id: { in: groupIds } },
+    select: { id: true },
+  });
+
+  if (existingGroups.length !== groupIds.length) {
+    const existingGroupIds = new Set(existingGroups.map((group) => group.id));
+    const missingGroupId = groupIds.find((groupId) => !existingGroupIds.has(groupId));
+    throw new AppError(`Specification group not found: ${missingGroupId ?? "unknown"}`, status.NOT_FOUND);
+  }
+
+  await prisma.specificationField.createMany({
+    data: uniqueItems.map((item) => ({
+      name: item.name,
+      groupId: item.groupId,
+      type: item.type,
+      options: item.options,
+      isFeatured: item.isFeatured,
+    })),
+  });
+
+  const created = await prisma.specificationField.findMany({
+    where: {
+      OR: uniqueItems.map((item) => ({
+        groupId: item.groupId,
+        name: item.name,
+      })),
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return {
+    total: payload.length,
+    created,
+    skipped: {
+      invalidGroups: [],
+      duplicatesInPayload: duplicateKeys,
+    },
+  };
+};
+
+const getSpecificationGroups = async (subCategoryId?: string) => {
+  if (subCategoryId) {
+    const subCategory = await prisma.subCategory.findUnique({
+      where: { id: subCategoryId },
+    });
+
+    if (!subCategory) {
+      throw new AppError("Subcategory not found", status.NOT_FOUND);
+    }
+
+    const groups = await prisma.specificationGroup.findMany({
+      where: { subCategoryId },
+      orderBy: { name: "asc" },
+      include: {
+        fields: {
+          orderBy: { name: "asc" },
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return { total: groups.length, data: groups };
   }
 
   const groups = await prisma.specificationGroup.findMany({
-    where: { subCategoryId },
     orderBy: { name: "asc" },
+    include: {
+      fields: {
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  return { total: groups.length, data: groups };
+};
+
+const getSpecificationGroupsWithFields = async () => {
+  const groups = await prisma.specificationGroup.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      fields: {
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
   });
 
   return { total: groups.length, data: groups };
@@ -401,10 +633,37 @@ const getSpecificationFields = async (groupId: string) => {
       type: true,
       options: true,
       groupId: true,
+      isFeatured: true,
     },
   });
 
   return { total: fields.length, data: fields };
+};
+
+const getSpecificationGroupById = async (groupId: string) => {
+  const group = await prisma.specificationGroup.findUnique({
+    where: { id: groupId },
+    include: {
+      fields: {
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!group) {
+    throw new AppError("Specification group not found", status.NOT_FOUND);
+  }
+
+  return {
+    id: group.id,
+    name: group.name,
+    subCategoryId: group.subCategoryId,
+    fields: group.fields,
+  };
 };
 
 const getSpecificationFieldsBySubCategory = async (subCategoryId: string) => {
@@ -429,6 +688,7 @@ const getSpecificationFieldsBySubCategory = async (subCategoryId: string) => {
       type: true,
       options: true,
       groupId: true,
+      isFeatured: true,
     },
   });
 
@@ -455,6 +715,7 @@ const getSpecifications = async (subcategoryId: string) => {
           name: true,
           type: true,
           options: true,
+          isFeatured: true,
         },
       },
     },
@@ -465,6 +726,177 @@ const getSpecifications = async (subcategoryId: string) => {
       ...group,
       groupId: group.id,
       groupName: group.name,
+    })),
+  };
+};
+
+const getSpecificationGroupsSummary = async (subCategoryId?: string) => {
+  const subCategories = await prisma.subCategory.findMany({
+    where: subCategoryId ? { id: subCategoryId } : undefined,
+    orderBy: { name: "asc" },
+    include: {
+      specificationGroups: {
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      },
+    },
+  });
+
+  const totalGroups = subCategories.reduce((acc, sc) => acc + sc.specificationGroups.length, 0);
+
+  return {
+    totalSubCategories: subCategories.length,
+    totalGroups,
+    data: subCategories.map((sc) => ({
+      subCategory: { id: sc.id, name: sc.name },
+      groupsCount: sc.specificationGroups.length,
+      groups: sc.specificationGroups,
+    })),
+  };
+};
+
+const getFeaturedSpecificationFieldsBySubCategory = async (subCategoryId: string) => {
+  const subCategory = await prisma.subCategory.findUnique({ where: { id: subCategoryId } });
+
+  if (!subCategory) {
+    throw new AppError("Subcategory not found", status.NOT_FOUND);
+  }
+
+  const fields = await prisma.specificationField.findMany({
+    where: {
+      AND: [{ isFeatured: true }, { group: { subCategoryId } }],
+    },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      options: true,
+      groupId: true,
+      isFeatured: true,
+    },
+  });
+
+  return { total: fields.length, data: fields };
+};
+
+const setSpecificationFieldFeatured = async (id: string, isFeatured: boolean) => {
+  const existing = await prisma.specificationField.findUnique({ where: { id } });
+
+  if (!existing) {
+    throw new AppError("Specification field not found", status.NOT_FOUND);
+  }
+
+  return prisma.specificationField.update({ where: { id }, data: { isFeatured } });
+};
+
+const setSpecificationFieldsFeaturedBySubCategory = async (
+  subCategoryId: string,
+  fieldIds: string[] | undefined,
+  isFeatured: boolean,
+) => {
+  const subCategory = await prisma.subCategory.findUnique({ where: { id: subCategoryId } });
+
+  if (!subCategory) {
+    throw new AppError("Subcategory not found", status.NOT_FOUND);
+  }
+
+  if (fieldIds && fieldIds.length > 0) {
+    const fields = await prisma.specificationField.findMany({ where: { id: { in: fieldIds } }, select: { id: true, groupId: true } });
+    const invalid = fields.find((f) => {
+      return f.groupId === undefined || f.groupId === null || f.groupId === "" ? true : false;
+    });
+
+    const fieldIdsSet = new Set(fields.map((f) => f.id));
+    if (fieldIdsSet.size !== fieldIds.length) {
+      throw new AppError("One or more specification fields not found", status.NOT_FOUND);
+    }
+
+    // ensure all belong to the subcategory
+    const fieldsInSubcategory = await prisma.specificationField.findMany({
+      where: { id: { in: fieldIds }, group: { subCategoryId } },
+      select: { id: true },
+    });
+
+    if (fieldsInSubcategory.length !== fieldIds.length) {
+      throw new AppError("One or more specification fields do not belong to the provided subcategory", status.BAD_REQUEST);
+    }
+
+    await prisma.specificationField.updateMany({ where: { id: { in: fieldIds } }, data: { isFeatured } });
+
+    const updated = await prisma.specificationField.findMany({ where: { id: { in: fieldIds } } });
+    return { total: updated.length, data: updated };
+  }
+
+  // update all fields in subcategory
+  await prisma.specificationField.updateMany({ where: { group: { subCategoryId } }, data: { isFeatured } });
+
+  const updated = await prisma.specificationField.findMany({ where: { group: { subCategoryId } } });
+  return { total: updated.length, data: updated };
+};
+
+const getCatalogHierarchy = async () => {
+  const categories = await prisma.category.findMany({
+    orderBy: { name: "asc" },
+    include: {
+      subCategories: {
+        orderBy: { name: "asc" },
+        include: {
+          specificationGroups: {
+            orderBy: { name: "asc" },
+            select: {
+              id: true,
+              name: true,
+              fields: {
+                orderBy: { name: "asc" },
+                select: {
+                  id: true,
+                  name: true,
+                  groupId: true,
+                  type: true,
+                  options: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const totalSubCategories = categories.reduce((count, category) => count + category.subCategories.length, 0);
+  const totalGroups = categories.reduce(
+    (count, category) =>
+      count + category.subCategories.reduce((subCount, subCategory) => subCount + subCategory.specificationGroups.length, 0),
+    0,
+  );
+  const totalSpecFields = categories.reduce(
+    (count, category) =>
+      count
+      + category.subCategories.reduce(
+        (subCount, subCategory) =>
+          subCount + subCategory.specificationGroups.reduce((groupCount, group) => groupCount + group.fields.length, 0),
+        0,
+      ),
+    0,
+  );
+
+  return {
+    totalCategories: categories.length,
+    totalSubCategories,
+    totalGroups,
+    totalSpecFields,
+    data: categories.map((category) => ({
+      category: {
+        id: category.id,
+        name: category.name,
+      },
+      subCategories: category.subCategories.map((subCategory) => ({
+        id: subCategory.id,
+        name: subCategory.name,
+        specGroups: subCategory.specificationGroups,
+        groupsCount: subCategory.specificationGroups.length,
+      })),
     })),
   };
 };
@@ -513,6 +945,9 @@ const createProduct = async (payload: ICreateProductPayload) => {
     throw new AppError("Brand not found", status.NOT_FOUND);
   }
 
+  const extraSubCategoryIds = getExtraSubCategoryIds(payload.subCategoryId, payload.subCategoryIds);
+  await validateSubCategoryIdsExist(extraSubCategoryIds);
+
   const specifications = payload.specifications ?? [];
   if (specifications.length > 0) {
     await validateSpecificationFields(payload.subCategoryId, specifications);
@@ -521,6 +956,7 @@ const createProduct = async (payload: ICreateProductPayload) => {
   const createdProduct = await prisma.product.create({
     data: {
       title: payload.title.trim(),
+      description: payload.description?.trim() ?? null,
       price: payload.price,
       discountPrice: payload.discountPrice,
       quantity: payload.quantity ?? 0,
@@ -531,6 +967,11 @@ const createProduct = async (payload: ICreateProductPayload) => {
       images: payload.images ?? [],
       isFeatured: payload.isFeatured ?? false,
       subCategoryId: payload.subCategoryId,
+      productSubCategories: {
+        create: extraSubCategoryIds.map((subCategoryId) => ({
+          subCategoryId,
+        })),
+      },
       specifications: {
         create: specifications.map((specification) => ({
           fieldId: specification.fieldId,
@@ -565,6 +1006,17 @@ const createProduct = async (payload: ICreateProductPayload) => {
   return createdProduct;
 };
 
+const createProductBulk = async (payload: ICreateProductBulkPayload) => {
+  const createdProducts = [];
+
+  for (const item of payload) {
+    const createdProduct = await createProduct(item);
+    createdProducts.push(createdProduct);
+  }
+
+  return createdProducts;
+};
+
 const getProducts = async (query: ICatalogFilterQuery) => {
   const searchTerm = typeof query.search === "string" ? query.search.trim() : undefined;
   const subCategoryId = query.subcategoryId ?? query.subCategoryId;
@@ -592,7 +1044,7 @@ const getProducts = async (query: ICatalogFilterQuery) => {
 
   const products = await prisma.product.findMany({
     where: {
-      ...(subCategoryId ? { subCategoryId } : {}),
+      ...buildProductSubCategoryWhere(subCategoryId),
       ...(brandSlug
         ? {
             brand: {
@@ -625,6 +1077,15 @@ const getProducts = async (query: ICatalogFilterQuery) => {
       subCategory: {
         include: {
           category: true,
+        },
+      },
+      productSubCategories: {
+        include: {
+          subCategory: {
+            include: {
+              category: true,
+            },
+          },
         },
       },
       specifications: {
@@ -762,6 +1223,11 @@ const getRecommendedProducts = async (search: string, limit = 3) => {
       images: true,
       brand: { select: { id: true, name: true, slug: true } },
       subCategory: { select: { id: true, name: true, category: { select: { id: true, name: true } } } },
+      productSubCategories: {
+        select: {
+          subCategory: { select: { id: true, name: true, category: { select: { id: true, name: true } } } },
+        },
+      },
     },
   });
 };
@@ -774,6 +1240,15 @@ const getProductById = async (id: string) => {
       subCategory: {
         include: {
           category: true,
+        },
+      },
+      productSubCategories: {
+        include: {
+          subCategory: {
+            include: {
+              category: true,
+            },
+          },
         },
       },
       specifications: {
@@ -803,6 +1278,7 @@ const updateProduct = async (id: string, payload: IUpdateProductPayload) => {
     where: { id },
     include: {
       specifications: true,
+      productSubCategories: true,
     },
   });
 
@@ -835,8 +1311,18 @@ const updateProduct = async (id: string, payload: IUpdateProductPayload) => {
     }
   }
 
+  const targetSubCategoryId = payload.subCategoryId ?? existingProduct.subCategoryId;
+  const extraSubCategoryIds = payload.subCategoryIds !== undefined
+    ? getExtraSubCategoryIds(targetSubCategoryId, payload.subCategoryIds)
+    : undefined;
+
+  if (extraSubCategoryIds !== undefined) {
+    await validateSubCategoryIdsExist(extraSubCategoryIds);
+  }
+
   const updateData: Record<string, unknown> = {
     ...(payload.title !== undefined ? { title: payload.title.trim() } : {}),
+    ...(payload.description !== undefined ? { description: payload.description?.trim() ?? null } : {}),
     ...(payload.price !== undefined ? { price: payload.price } : {}),
     ...(payload.discountPrice !== undefined ? { discountPrice: payload.discountPrice } : {}),
     ...(payload.quantity !== undefined ? { quantity: payload.quantity } : {}),
@@ -854,25 +1340,42 @@ const updateProduct = async (id: string, payload: IUpdateProductPayload) => {
       await tx.productSpecification.deleteMany({
         where: { productId: id },
       });
-
-      await tx.product.update({
-        where: { id },
-        data: {
-          ...updateData,
-          specifications: {
-            create: payload.specifications.map((specification) => ({
-              fieldId: specification.fieldId,
-              value: specification.value,
-            })),
-          },
-        },
-      });
-    } else {
-      await tx.product.update({
-        where: { id },
-        data: updateData,
-      });
     }
+
+    await tx.product.update({
+      where: { id },
+      data: {
+        ...updateData,
+        ...(payload.specifications
+          ? {
+              specifications: {
+                create: payload.specifications.map((specification) => ({
+                  fieldId: specification.fieldId,
+                  value: specification.value,
+                })),
+              },
+            }
+          : {}),
+        ...(extraSubCategoryIds !== undefined
+          ? {
+              productSubCategories: {
+                deleteMany: {},
+                create: extraSubCategoryIds.map((subCategoryId) => ({
+                  subCategoryId,
+                })),
+              },
+            }
+          : payload.subCategoryId !== undefined
+            ? {
+                productSubCategories: {
+                  deleteMany: {
+                    subCategoryId: targetSubCategoryId,
+                  },
+                },
+              }
+            : {}),
+      },
+    });
 
     return tx.product.findUnique({
       where: { id },
@@ -881,6 +1384,15 @@ const updateProduct = async (id: string, payload: IUpdateProductPayload) => {
         subCategory: {
           include: {
             category: true,
+          },
+        },
+        productSubCategories: {
+          include: {
+            subCategory: {
+              include: {
+                category: true,
+              },
+            },
           },
         },
         specifications: {
@@ -958,6 +1470,15 @@ const getFeaturedProducts = async () => {
                   category: true,
                 },
               },
+              productSubCategories: {
+                include: {
+                  subCategory: {
+                    include: {
+                      category: true,
+                    },
+                  },
+                },
+              },
               specifications: {
                 include: {
                   field: {
@@ -1005,6 +1526,7 @@ const getFilterOptions = async (subcategoryId: string) => {
           name: true,
           type: true,
           options: true,
+          isFeatured: true,
         },
       },
     },
@@ -1078,7 +1600,7 @@ const getFilteredProductCount = async (query: ICatalogFilterQuery) => {
 
   const products = await prisma.product.findMany({
     where: {
-      ...(subCategoryId ? { subCategoryId } : {}),
+      ...buildProductSubCategoryWhere(subCategoryId),
       ...(brandSlug
         ? {
             brand: {
@@ -1164,6 +1686,81 @@ const getFilteredProductCount = async (query: ICatalogFilterQuery) => {
   };
 };
 
+const updateProductSpecification = async (
+  productId: string,
+  specificationId: string,
+  payload: { fieldId?: string; value?: string },
+) => {
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+
+  if (!product) {
+    throw new AppError("Product not found", status.NOT_FOUND);
+  }
+
+  const existing = await prisma.productSpecification.findUnique({ where: { id: specificationId } });
+
+  if (!existing || existing.productId !== productId) {
+    throw new AppError("Specification not found", status.NOT_FOUND);
+  }
+
+  const data: Record<string, unknown> = {};
+  if (payload.fieldId !== undefined) data.fieldId = payload.fieldId;
+  if (payload.value !== undefined) data.value = payload.value;
+
+  if (Object.keys(data).length === 0) {
+    throw new AppError("No fields to update", status.BAD_REQUEST);
+  }
+
+  return prisma.productSpecification.update({
+    where: { id: specificationId },
+    data,
+    include: {
+      field: { select: { id: true, name: true, type: true, options: true, isFeatured: true } },
+    },
+  });
+};
+
+const updateProductSpecifications = async (
+  productId: string,
+  specifications: Array<{ id?: string; fieldId: string; value: string }>,
+) => {
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+
+  if (!product) {
+    throw new AppError("Product not found", status.NOT_FOUND);
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const results: any[] = [];
+
+    for (const spec of specifications) {
+      if (spec.id) {
+        const existing = await tx.productSpecification.findUnique({ where: { id: spec.id } });
+        if (!existing || existing.productId !== productId) {
+          throw new AppError(`Specification not found: ${spec.id}`, status.NOT_FOUND);
+        }
+
+        const updated = await tx.productSpecification.update({
+          where: { id: spec.id },
+          data: { fieldId: spec.fieldId, value: spec.value },
+          include: { field: { select: { id: true, name: true, type: true, options: true, isFeatured: true } } },
+        });
+
+        results.push(updated);
+      } else {
+        const created = await tx.productSpecification.create({
+          data: { productId, fieldId: spec.fieldId, value: spec.value },
+          include: { field: { select: { id: true, name: true, type: true, options: true, isFeatured: true } } },
+        });
+
+        results.push(created);
+      }
+    }
+
+    return results;
+  });
+};
+
 const setProductFeatured = async (id: string, isFeatured: boolean) => {
   const existing = await prisma.product.findUnique({ where: { id } });
 
@@ -1188,12 +1785,22 @@ export const CatalogService = {
   getSubCategories,
   getSubCategoryById,
   createSpecificationGroup,
+  createSpecificationGroupBulk,
   createSpecificationField,
+  createSpecificationFieldBulk,
+  getSpecificationGroupsSummary,
+  getSpecificationGroupById,
+  getSpecificationGroupsWithFields,
+  getCatalogHierarchy,
   getSpecificationGroups,
   getSpecificationFields,
   getSpecificationFieldsBySubCategory,
+  getFeaturedSpecificationFieldsBySubCategory,
   getSpecifications,
+  updateProductSpecification,
+  updateProductSpecifications,
   createProduct,
+  createProductBulk,
   getProducts,
   getProductSuggestions,
   getRecommendedProducts,
@@ -1206,4 +1813,6 @@ export const CatalogService = {
   getFilteredProductCount,
   setCategoryFeatured,
   setProductFeatured,
+  setSpecificationFieldFeatured,
+  setSpecificationFieldsFeaturedBySubCategory,
 };

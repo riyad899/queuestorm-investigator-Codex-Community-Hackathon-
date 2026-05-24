@@ -1,6 +1,7 @@
 model Product {
   id            String   @id @default(uuid())
   title         String
+  description   String?
   price         Float
   discountPrice Float?
   quantity      Int      @default(0)
@@ -15,6 +16,8 @@ model Product {
 
   subCategoryId String
   subCategory   SubCategory @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
+
+  productSubCategories ProductSubCategory[]
 
   specifications      ProductSpecification[]
   latestOfferProducts LatestOfferProduct[]

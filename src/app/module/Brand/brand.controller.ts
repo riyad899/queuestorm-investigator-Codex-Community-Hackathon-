@@ -26,6 +26,17 @@ const assignCategory = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const createBrandBulk = catchAsync(async (req: Request, res: Response) => {
+  const result = await BrandService.createBrandBulk(req.body);
+
+  sendResponse(res, {
+    httpStatus: status.CREATED,
+    success: true,
+    message: "Brands created successfully",
+    data: result,
+  });
+});
+
 const getBrands = catchAsync(async (req: Request, res: Response) => {
   const result = await BrandService.getBrands(req.query as any);
 
@@ -50,6 +61,7 @@ const getBrandBySlug = catchAsync(async (req: Request, res: Response) => {
 
 export const BrandController = {
   createBrand,
+  createBrandBulk,
   assignCategory,
   getBrands,
   getBrandBySlug,

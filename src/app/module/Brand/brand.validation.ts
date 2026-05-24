@@ -9,6 +9,8 @@ export const createBrandZodSchema = z.object({
   description: z.string().nullable().optional(),
 });
 
+export const createBrandBulkZodSchema = z.array(createBrandZodSchema).min(1, "At least one brand is required");
+
 export const assignBrandCategoryZodSchema = z.object({
   brandId: z.string().min(1, "Brand id is required"),
   categoryId: z.string().min(1, "Category id is required"),

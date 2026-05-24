@@ -7,6 +7,8 @@ export interface ICreateBrandPayload {
   description?: string | null;
 }
 
+export type ICreateBrandBulkPayload = ICreateBrandPayload[];
+
 export interface IAssignBrandCategoryPayload {
   brandId: string;
   categoryId: string;

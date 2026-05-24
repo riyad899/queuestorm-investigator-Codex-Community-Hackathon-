@@ -126,6 +126,17 @@ const createSpecificationGroup = catchAsync(async (req: Request, res: Response) 
   });
 });
 
+const createSpecificationGroupBulk = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.createSpecificationGroupBulk(req.body);
+
+  sendResponse(res, {
+    httpStatus: status.CREATED,
+    success: true,
+    message: "Specification groups created successfully",
+    data: result,
+  });
+});
+
 const createSpecificationField = catchAsync(async (req: Request, res: Response) => {
   const result = await CatalogService.createSpecificationField(req.body);
 
@@ -137,17 +148,19 @@ const createSpecificationField = catchAsync(async (req: Request, res: Response) 
   });
 });
 
+const createSpecificationFieldBulk = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.createSpecificationFieldBulk(req.body);
+
+  sendResponse(res, {
+    httpStatus: status.CREATED,
+    success: true,
+    message: "Specification fields created successfully",
+    data: result,
+  });
+});
+
 const getSpecificationGroups = catchAsync(async (req: Request, res: Response) => {
   const subcategoryId = (req.query.subcategoryId ?? req.query.subCategoryId) as string | undefined;
-
-  if (!subcategoryId) {
-    sendResponse(res, {
-      httpStatus: status.BAD_REQUEST,
-      success: false,
-      message: "subcategoryId query parameter is required",
-    });
-    return;
-  }
 
   const result = await CatalogService.getSpecificationGroups(subcategoryId);
 
@@ -155,6 +168,17 @@ const getSpecificationGroups = catchAsync(async (req: Request, res: Response) =>
     httpStatus: status.OK,
     success: true,
     message: "Specification groups fetched successfully",
+    data: result,
+  });
+});
+
+const getSpecificationGroupsWithFields = catchAsync(async (_req: Request, res: Response) => {
+  const result = await CatalogService.getSpecificationGroupsWithFields();
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Specification groups with fields fetched successfully",
     data: result,
   });
 });
@@ -208,6 +232,88 @@ const getSpecificationFields = catchAsync(async (req: Request, res: Response) =>
   });
 });
 
+const getSpecificationGroupsSummary = catchAsync(async (req: Request, res: Response) => {
+  const subcategoryId = (req.query.subcategoryId ?? req.query.subCategoryId) as string | undefined;
+
+  const result = await CatalogService.getSpecificationGroupsSummary(subcategoryId);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Specification groups summary fetched successfully",
+    data: result,
+  });
+});
+
+const getFeaturedSpecificationFieldsBySubCategory = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.getFeaturedSpecificationFieldsBySubCategory(String(req.params.id));
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Featured specification fields fetched successfully",
+    data: result,
+  });
+});
+
+const featureSpecificationField = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.setSpecificationFieldFeatured(String(req.params.id), true);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Specification field marked as featured",
+    data: result,
+  });
+});
+
+const unfeatureSpecificationField = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.setSpecificationFieldFeatured(String(req.params.id), false);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Specification field unmarked as featured",
+    data: result,
+  });
+});
+
+const setSpecificationFieldsFeaturedBySubCategory = catchAsync(async (req: Request, res: Response) => {
+  const subCategoryId = String(req.params.id);
+  const { fieldIds, isFeatured } = req.body as { fieldIds?: string[]; isFeatured: boolean };
+
+  const result = await CatalogService.setSpecificationFieldsFeaturedBySubCategory(subCategoryId, fieldIds, isFeatured);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Specification fields updated successfully",
+    data: result,
+  });
+});
+
+const getSpecificationGroupById = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.getSpecificationGroupById(String(req.params.id));
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Specification group fetched successfully",
+    data: result,
+  });
+});
+
+const getCatalogHierarchy = catchAsync(async (_req: Request, res: Response) => {
+  const result = await CatalogService.getCatalogHierarchy();
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Catalog hierarchy fetched successfully",
+    data: result,
+  });
+});
+
 const getSpecifications = catchAsync(async (req: Request, res: Response) => {
   const subcategoryId = (req.query.subcategoryId ?? req.query.subCategoryId) as string | undefined;
 
@@ -237,6 +343,17 @@ const createProduct = catchAsync(async (req: Request, res: Response) => {
     httpStatus: status.CREATED,
     success: true,
     message: "Product created successfully",
+    data: result,
+  });
+});
+
+const createProductBulk = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.createProductBulk(req.body);
+
+  sendResponse(res, {
+    httpStatus: status.CREATED,
+    success: true,
+    message: "Products created successfully",
     data: result,
   });
 });
@@ -301,6 +418,35 @@ const updateProduct = catchAsync(async (req: Request, res: Response) => {
     httpStatus: status.OK,
     success: true,
     message: "Product updated successfully",
+    data: result,
+  });
+});
+
+const updateProductSpecification = catchAsync(async (req: Request, res: Response) => {
+  const productId = String(req.params.productId);
+  const specId = String(req.params.specId);
+  const payload = req.body as { fieldId?: string; value?: string };
+
+  const result = await CatalogService.updateProductSpecification(productId, specId, payload);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Product specification updated successfully",
+    data: result,
+  });
+});
+
+const updateProductSpecifications = catchAsync(async (req: Request, res: Response) => {
+  const productId = String(req.params.productId);
+  const { specifications } = req.body as { specifications: Array<{ id?: string; fieldId: string; value: string }> };
+
+  const result = await CatalogService.updateProductSpecifications(productId, specifications);
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Product specifications updated successfully",
     data: result,
   });
 });
@@ -392,11 +538,18 @@ export const CatalogController = {
   getSubCategories,
   getSubCategoryById,
   createSpecificationGroup,
+  createSpecificationGroupBulk,
   createSpecificationField,
+  createSpecificationFieldBulk,
+  getSpecificationGroupsSummary,
+  getSpecificationGroupById,
+  getSpecificationGroupsWithFields,
+  getCatalogHierarchy,
   getSpecificationGroups,
   getSpecificationFields,
   getSpecifications,
   createProduct,
+  createProductBulk,
   getProducts,
   getFeaturedProducts,
   getProductSuggestions,
@@ -407,6 +560,12 @@ export const CatalogController = {
   getFilterOptions,
   getFieldOptions,
   getFilteredProductCount,
+  getFeaturedSpecificationFieldsBySubCategory,
+  featureSpecificationField,
+  unfeatureSpecificationField,
+  setSpecificationFieldsFeaturedBySubCategory,
+  updateProductSpecification,
+  updateProductSpecifications,
   featureCategory,
   unfeatureCategory,
   featureProduct,

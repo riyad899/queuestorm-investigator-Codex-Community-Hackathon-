@@ -5,6 +5,7 @@ model SpecificationField {
   groupId String
   type    String   @default("text")
   options String[] @default([])
+  isFeatured Boolean @default(false)
 
   group SpecificationGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 

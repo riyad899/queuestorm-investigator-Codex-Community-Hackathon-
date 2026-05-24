@@ -1,0 +1,12 @@
+model ProductSubCategory {
+  id            String     @id @default(uuid())
+  productId     String
+  subCategoryId String
+
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  subCategory SubCategory @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, subCategoryId])
+  @@index([productId])
+  @@index([subCategoryId])
+}

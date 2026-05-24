@@ -1,7 +1,12 @@
 import status from "http-status";
 import AppError from "../../errorHelpers/appError.js";
 import { prisma } from "../../lib/prisma.js";
-import { IAssignBrandCategoryPayload, IBrandQuery, ICreateBrandPayload } from "./brand.interface.js";
+import {
+  IAssignBrandCategoryPayload,
+  IBrandQuery,
+  ICreateBrandBulkPayload,
+  ICreateBrandPayload,
+} from "./brand.interface.js";
 
 const createBrand = async (payload: ICreateBrandPayload) => {
   const name = payload.name.trim();
@@ -108,6 +113,62 @@ const getBrands = async (query: IBrandQuery) => {
   });
 };
 
+const createBrandBulk = async (payload: ICreateBrandBulkPayload) => {
+  const cleanedBrands = payload.map((brand: ICreateBrandPayload) => ({
+    name: brand.name.trim(),
+    slug: brand.slug.trim().toLowerCase(),
+    logo: brand.logo ?? null,
+    country: brand.country ?? null,
+    slogan: brand.slogan ?? null,
+    description: brand.description ?? null,
+  }));
+
+  const slugCountMap: Record<string, number> = cleanedBrands.reduce((acc, brand) => {
+    acc[brand.slug] = (acc[brand.slug] ?? 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const duplicateSlugs = Object.keys(slugCountMap).filter((slug) => slugCountMap[slug] > 1);
+
+  if (duplicateSlugs.length > 0) {
+    throw new AppError(
+      `Duplicate brand slugs in payload: ${duplicateSlugs.join(", ")}`,
+      status.BAD_REQUEST,
+    );
+  }
+
+  const slugs = cleanedBrands.map((brand) => brand.slug);
+
+  const existingBrands = await prisma.brand.findMany({
+    where: {
+      slug: {
+        in: slugs,
+        mode: "insensitive",
+      },
+    },
+    select: { slug: true },
+  });
+
+  if (existingBrands.length > 0) {
+    throw new AppError(
+      `Brand(s) already exist: ${existingBrands.map((brand) => brand.slug).join(", ")}`,
+      status.CONFLICT,
+    );
+  }
+
+  await prisma.brand.createMany({
+    data: cleanedBrands,
+  });
+
+  return prisma.brand.findMany({
+    where: {
+      slug: {
+        in: slugs,
+      },
+    },
+  });
+};
+
 const getBrandBySlug = async (slug: string) => {
   const brand = await prisma.brand.findUnique({
     where: { slug },
@@ -132,6 +193,7 @@ const getBrandBySlug = async (slug: string) => {
 
 export const BrandService = {
   createBrand,
+  createBrandBulk,
   assignCategory,
   getBrands,
   getBrandBySlug,
