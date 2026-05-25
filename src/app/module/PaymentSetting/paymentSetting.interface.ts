@@ -2,6 +2,7 @@ export interface IPaymentMethodSettingInput {
   key: string;
   name: string;
   isActive?: boolean;
+  transactionIdRequired?: boolean;
   accountNumber?: string;
   description?: string;
   qrCodeUrl?: string;

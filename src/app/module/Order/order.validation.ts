@@ -19,6 +19,7 @@ export const createOrderZodSchema = z.object({
   couponCode: z.string().min(1).optional(),
 
   paymentMethodKey: z.string().min(1).optional(),
+  transactionId: z.string().min(1).optional(),
   deliveryMethodKey: z.string().min(1).optional(),
 
   items: z.array(orderItemSchema).min(1, "At least one item is required"),

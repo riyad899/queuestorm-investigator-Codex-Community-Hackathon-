@@ -7,7 +7,7 @@ import {
   IUpdateOrderDeliveryPayload,
   IUpdateOrderPaymentPayload,
 } from "./order.interface.js";
-import { getDeliveryFeeByKey } from "../PaymentSetting/paymentSetting.service.js";
+import { getDeliveryFeeByKey, getPaymentMethodByKey } from "../PaymentSetting/paymentSetting.service.js";
 import { validateCoupon as validateCouponService } from "../Coupon/coupon.service.js";
 
 const normalizeOptionalString = (value: string | undefined) => {
@@ -46,6 +46,13 @@ export const createOrder = async (payload: ICreateOrderPayload, userId?: string)
 
   const subTotal = orderItems.reduce((sum, i) => sum + i.lineTotal, 0);
   const deliveryFee = await getDeliveryFeeByKey(payload.deliveryMethodKey);
+  const paymentMethod = await getPaymentMethodByKey(payload.paymentMethodKey);
+  const transactionId = normalizeOptionalString(payload.transactionId);
+
+  if (paymentMethod?.transactionIdRequired && !transactionId) {
+    throw new AppError("Transaction ID is required for the selected payment method", status.BAD_REQUEST);
+  }
+
   let discountAmount = 0;
   let couponId: string | undefined;
   let couponCodeSnapshot: string | undefined;
@@ -86,6 +93,7 @@ export const createOrder = async (payload: ICreateOrderPayload, userId?: string)
         comment: normalizeOptionalString(payload.comment),
 
         paymentMethodKey: normalizeOptionalString(payload.paymentMethodKey),
+        transactionId,
         deliveryMethodKey: normalizeOptionalString(payload.deliveryMethodKey),
 
         couponId,
@@ -173,6 +181,7 @@ export const getCustomerOrderById = async (id: string) => {
       email: true,
       comment: true,
       paymentMethodKey: true,
+      transactionId: true,
       deliveryMethodKey: true,
       couponCodeSnapshot: true,
       discountAmount: true,

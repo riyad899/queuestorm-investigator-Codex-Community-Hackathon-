@@ -31,6 +31,7 @@ export const upsertPaymentSetting = async (payload: IUpsertPaymentSettingPayload
                 key: m.key.trim(),
                 name: m.name.trim(),
                 isActive: m.isActive ?? true,
+                transactionIdRequired: m.transactionIdRequired ?? false,
                 accountNumber: normalizeOptionalString(m.accountNumber),
                 description: normalizeOptionalString(m.description),
                 qrCodeUrl: normalizeOptionalString(m.qrCodeUrl),
@@ -74,6 +75,7 @@ export const upsertPaymentSetting = async (payload: IUpsertPaymentSettingPayload
             key: m.key.trim(),
             name: m.name.trim(),
             isActive: m.isActive ?? true,
+            transactionIdRequired: m.transactionIdRequired ?? false,
             accountNumber: normalizeOptionalString(m.accountNumber),
             description: normalizeOptionalString(m.description),
             qrCodeUrl: normalizeOptionalString(m.qrCodeUrl),
@@ -126,4 +128,23 @@ export const getDeliveryFeeByKey = async (deliveryMethodKey: string | undefined)
   );
 
   return method?.fee ?? 0;
+};
+
+export const getPaymentMethodByKey = async (paymentMethodKey: string | undefined) => {
+  if (!paymentMethodKey) {
+    return undefined;
+  }
+
+  const setting = await prisma.paymentSetting.findFirst({
+    orderBy: { createdAt: "desc" },
+    include: { paymentMethods: true },
+  });
+
+  if (!setting) {
+    return undefined;
+  }
+
+  return setting.paymentMethods.find(
+    (m) => m.isActive && m.key.toLowerCase() === paymentMethodKey.toLowerCase(),
+  );
 };

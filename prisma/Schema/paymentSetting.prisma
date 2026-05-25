@@ -19,6 +19,7 @@ model PaymentMethodSetting {
   key       String
   name      String
   isActive  Boolean @default(true)
+  transactionIdRequired Boolean @default(false)
 
   accountNumber String?
   description   String?

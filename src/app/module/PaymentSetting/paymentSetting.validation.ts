@@ -9,6 +9,7 @@ const paymentMethodSchema = z.object({
   key: methodKeySchema,
   name: z.string().min(1, "Name is required").transform((v) => v.trim()),
   isActive: z.boolean().optional(),
+  transactionIdRequired: z.boolean().optional(),
   accountNumber: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
   qrCodeUrl: z.string().url().optional(),

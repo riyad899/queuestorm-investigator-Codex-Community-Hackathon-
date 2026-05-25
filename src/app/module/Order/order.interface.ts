@@ -18,6 +18,7 @@ export interface ICreateOrderPayload {
   couponCode?: string;
 
   paymentMethodKey?: string;
+  transactionId?: string;
   deliveryMethodKey?: string;
 
   items: IOrderItemInput[];

@@ -96,7 +96,6 @@ export const auth = betterAuth({
                    }
 
                     if (user && !user.emailVerified){
-                    // Email sending is now handled by the frontend
                     // void sendEmail({
                     //     to : email,
                     //     subject : "Verify your email",
@@ -111,7 +110,6 @@ export const auth = betterAuth({
                     })
 
                     if(user){
-                        // Email sending is now handled by the frontend
                         // void sendEmail({
                         //     to : email,
                         //     subject : "Password Reset OTP",

@@ -20,7 +20,6 @@ const transporter = nodemailer.createTransport({
 interface SendEmailOptions {
     to: string;
     subject: string;
-    html?: string;
     text?: string;
     attachments?: {
         filename: string;
@@ -29,14 +28,12 @@ interface SendEmailOptions {
     }[]
 }
 
-export const sendEmail = async ({subject, html, text, to, attachments} : SendEmailOptions) => {
+export const sendEmail = async ({subject, text, to, attachments} : SendEmailOptions) => {
     try {
-        // Simple email without EJS - Frontend handles template
         const sendMailPromise = transporter.sendMail({
             from: envVars.EMAIL_SENDER.SMTP_FROM,
             to : to,
             subject : subject,
-            html : html || text,
             text : text,
             attachments: attachments?.map((attachment) => ({
                 filename: attachment.filename,
