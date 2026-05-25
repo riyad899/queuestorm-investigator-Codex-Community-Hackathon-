@@ -12,6 +12,10 @@ import cors from "cors";
 
 const app:Application = express();
 
+// Required behind Vercel/other reverse proxies so secure cookies and OAuth
+// callback flows work correctly across HTTPS origins.
+app.set("trust proxy", 1);
+
 // Middleware to parse JSON bodies
 app.use(express.json());
 // Enable URL-encoded form data parsing

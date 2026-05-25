@@ -191,24 +191,34 @@ const googleLogin = catchAsync(async (req: Request, res: Response) => {
   const callbackURL = `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success?redirect=${encodedRedirectPath}`;
 
   const response = await fetch(`${envVars.BETTER_AUTH_URL}/api/auth/sign-in/social`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    provider: "google",
-    callbackURL,
-  }),
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      provider: "google",
+      callbackURL,
+    }),
   });
 
   if (!response.ok) {
-  return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_failed`);
+    return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_failed`);
   }
 
   const data = await response.json() as { url?: string };
 
+  const setCookieHeaders =
+    // Node/undici exposes the full cookie list here when available.
+    (response.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie?.() ??
+    response.headers.get("set-cookie")?.split(/,(?=[^;]+=[^;]+)/g) ??
+    [];
+
+  if (setCookieHeaders.length > 0) {
+    res.setHeader("Set-Cookie", setCookieHeaders);
+  }
+
   if (!data.url) {
-  return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_failed`);
+    return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_failed`);
   }
 
   return res.redirect(data.url);

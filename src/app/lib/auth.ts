@@ -8,6 +8,7 @@ import { sendEmail } from "../utils/email.js";
 
 const useSecureCookies = envVars.BETTER_AUTH_URL.toLowerCase().startsWith("https://");
 const authCookieSameSite = useSecureCookies ? "none" : "lax";
+const authCookieSecure = useSecureCookies;
 
 
 export const auth = betterAuth({
@@ -142,7 +143,7 @@ export const auth = betterAuth({
             state:{
                 attributes:{
                     sameSite: authCookieSameSite,
-                    secure: useSecureCookies,
+                secure: authCookieSecure,
                     httpOnly: true,
                     path: "/",
                 }
@@ -150,7 +151,7 @@ export const auth = betterAuth({
             sessionToken:{
                 attributes:{
                     sameSite: authCookieSameSite,
-                    secure: useSecureCookies,
+                secure: authCookieSecure,
                     httpOnly: true,
                     path: "/",
                 }
