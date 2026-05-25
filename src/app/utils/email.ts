@@ -4,18 +4,24 @@ import nodemailer from "nodemailer";
 import { envVars } from "../../config/env.js";
 import AppError from "../errorHelpers/appError.js";
 
-const transporter = nodemailer.createTransport({
-    host : envVars.EMAIL_SENDER.SMTP_HOST,
-    secure: true,
-    auth: {
-        user: envVars.EMAIL_SENDER.SMTP_USER,
-        pass: envVars.EMAIL_SENDER.SMTP_PASS
-    },
-    port: Number(envVars.EMAIL_SENDER.SMTP_PORT),
-    connectionTimeout: 3_000,
-    greetingTimeout: 3_000,
-    socketTimeout: 3_000,
-})
+const getTransporter = () => {
+    if (!envVars.EMAIL_SENDER) {
+        throw new AppError("Email configuration is not available", status.INTERNAL_SERVER_ERROR);
+    }
+
+    return nodemailer.createTransport({
+        host: envVars.EMAIL_SENDER.SMTP_HOST,
+        secure: true,
+        auth: {
+            user: envVars.EMAIL_SENDER.SMTP_USER,
+            pass: envVars.EMAIL_SENDER.SMTP_PASS,
+        },
+        port: Number(envVars.EMAIL_SENDER.SMTP_PORT),
+        connectionTimeout: 3_000,
+        greetingTimeout: 3_000,
+        socketTimeout: 3_000,
+    });
+};
 
 interface SendEmailOptions {
     to: string;
@@ -30,8 +36,14 @@ interface SendEmailOptions {
 
 export const sendEmail = async ({subject, text, to, attachments} : SendEmailOptions) => {
     try {
+        const emailConfig = envVars.EMAIL_SENDER;
+        if (!emailConfig) {
+            throw new AppError("Email configuration is not available", status.INTERNAL_SERVER_ERROR);
+        }
+
+        const transporter = getTransporter();
         const sendMailPromise = transporter.sendMail({
-            from: envVars.EMAIL_SENDER.SMTP_FROM,
+            from: emailConfig.SMTP_FROM,
             to : to,
             subject : subject,
             text : text,

@@ -18,6 +18,18 @@ const normalizeUrl = (value: string, fallbackProtocol: "http" | "https" = "https
     return `${protocol}://${value}`;
 };
 
+const getRenderExternalUrl = () => {
+    if (process.env.RENDER_EXTERNAL_URL) {
+        return process.env.RENDER_EXTERNAL_URL;
+    }
+
+    if (process.env.RENDER_EXTERNAL_HOSTNAME) {
+        return `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`;
+    }
+
+    return undefined;
+};
+
 interface EnvConfig {
     NODE_ENV: string;
     PORT: string;
@@ -31,41 +43,30 @@ interface EnvConfig {
     FRONTEND_URL: string;
     BETTER_AUTH_SESSION_EXPIRES_IN: string;
     BETTER_AUTH_SEASSION_UPDATE_AGE: string;
-    EMAIL_SENDER: {
+    EMAIL_SENDER?: {
         SMTP_USER: string;
         SMTP_PASS: string;
         SMTP_HOST: string;
         SMTP_PORT: string;
         SMTP_FROM: string;
     }
-    Google_Client_ID: string;
-    Google_Client_Secret: string;
-    Google_callbackURL: string;
+    Google_Client_ID?: string;
+    Google_Client_Secret?: string;
+    Google_callbackURL?: string;
 }
 
 const LoadEnvVarialbes = (): EnvConfig => {
     const requiredEnvVars = [
         "NODE_ENV",
-
         "PORT",
         "DATABASE_URL",
         "BETTER_AUTH_SECRET",
-        "BETTER_AUTH_URL",
         "ACCESS_TOKEN_SECRET",
         "REFRESH_TOKEN_SECRET",
         "ACCESS_TOKEN_EXPIRES_IN",
         "REFRESH_TOKEN_EXPIRES_IN",
-        "FRONTEND_URL",
         "BETTER_AUTH_SESSION_EXPIRES_IN",
         "BETTER_AUTH_SEASSION_UPDATE_AGE",
-        "EMAIL_SENDER_SMTP_USER",
-        "EMAIL_SENDER_SMTP_PASS",
-        "EMAIL_SENDER_SMTP_HOST",
-        "EMAIL_SENDER_SMTP_PORT",
-        "EMAIL_SENDER_SMTP_FROM",
-        "Google_Client_ID",
-        "Google_Client_Secret",
-        "Google_callbackURL",
     ];
     requiredEnvVars.forEach((varName) => {
         if (!process.env[varName]) {
@@ -73,29 +74,42 @@ const LoadEnvVarialbes = (): EnvConfig => {
         }
     });
 
+    const emailVars =
+        process.env.EMAIL_SENDER_SMTP_USER &&
+        process.env.EMAIL_SENDER_SMTP_PASS &&
+        process.env.EMAIL_SENDER_SMTP_HOST &&
+        process.env.EMAIL_SENDER_SMTP_PORT &&
+        process.env.EMAIL_SENDER_SMTP_FROM
+            ? {
+                SMTP_USER: process.env.EMAIL_SENDER_SMTP_USER,
+                SMTP_PASS: process.env.EMAIL_SENDER_SMTP_PASS,
+                SMTP_HOST: process.env.EMAIL_SENDER_SMTP_HOST,
+                SMTP_PORT: process.env.EMAIL_SENDER_SMTP_PORT,
+                SMTP_FROM: process.env.EMAIL_SENDER_SMTP_FROM,
+            }
+            : undefined;
+
+    const googleClientId = process.env.Google_Client_ID;
+    const googleClientSecret = process.env.Google_Client_Secret;
+    const googleCallbackURL = process.env.Google_callbackURL;
+
     return {
         NODE_ENV: process.env.NODE_ENV as string,
-        PORT: process.env.PORT as string,
+        PORT: process.env.PORT ?? "8000",
         DATABASE_URL: process.env.DATABASE_URL as string,
         BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET as string,
-        BETTER_AUTH_URL: normalizeUrl(process.env.BETTER_AUTH_URL as string),
+        BETTER_AUTH_URL: normalizeUrl(process.env.BETTER_AUTH_URL ?? getRenderExternalUrl() ?? "http://localhost:8000"),
         ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET as string,
         REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET as string,
         ACCESS_TOKEN_EXPIRES_IN: process.env.ACCESS_TOKEN_EXPIRES_IN as string,
         REFRESH_TOKEN_EXPIRES_IN: process.env.REFRESH_TOKEN_EXPIRES_IN as string,
-        FRONTEND_URL: normalizeUrl(process.env.FRONTEND_URL as string, "http"),
+        FRONTEND_URL: normalizeUrl(process.env.FRONTEND_URL ?? getRenderExternalUrl() ?? "http://localhost:3000", "http"),
         BETTER_AUTH_SESSION_EXPIRES_IN: process.env.BETTER_AUTH_SESSION_EXPIRES_IN as string,
         BETTER_AUTH_SEASSION_UPDATE_AGE: process.env.BETTER_AUTH_SEASSION_UPDATE_AGE as string,
-        EMAIL_SENDER: {
-            SMTP_USER: process.env.EMAIL_SENDER_SMTP_USER as string,
-            SMTP_PASS: process.env.EMAIL_SENDER_SMTP_PASS as string,
-            SMTP_HOST: process.env.EMAIL_SENDER_SMTP_HOST as string,
-            SMTP_PORT: process.env.EMAIL_SENDER_SMTP_PORT as string,
-            SMTP_FROM: process.env.EMAIL_SENDER_SMTP_FROM as string,
-        },
-        Google_Client_ID: process.env.Google_Client_ID as string,
-        Google_Client_Secret: process.env.Google_Client_Secret as string,
-        Google_callbackURL: normalizeUrl(process.env.Google_callbackURL as string),
+        EMAIL_SENDER: emailVars,
+        Google_Client_ID: googleClientId,
+        Google_Client_Secret: googleClientSecret,
+        Google_callbackURL: googleCallbackURL ? normalizeUrl(googleCallbackURL) : undefined,
     }
 }
 

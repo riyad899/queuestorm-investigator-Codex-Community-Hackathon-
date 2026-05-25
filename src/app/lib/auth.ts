@@ -4,11 +4,29 @@ import { prisma } from "./prisma.js";
 import { userStatus, Role } from "@prisma/client";
 import { envVars } from "../../config/env.js";
 import { bearer, emailOTP } from "better-auth/plugins";
-import { sendEmail } from "../utils/email.js";
 
 const useSecureCookies = envVars.BETTER_AUTH_URL.toLowerCase().startsWith("https://");
 const authCookieSameSite = useSecureCookies ? "none" : "lax";
 const authCookieSecure = useSecureCookies;
+
+const googleProvider = envVars.Google_Client_ID && envVars.Google_Client_Secret
+    ? {
+        google: {
+            clientId: envVars.Google_Client_ID,
+            clientSecret: envVars.Google_Client_Secret,
+            mapProfileToUser: () => {
+                return {
+                    role: Role.CUSTOMER,
+                    status: userStatus.ACTIVE,
+                    needPasswordChange: false,
+                    emailVerified: true,
+                    isDeleted: false,
+                    deletedAt: null,
+                };
+            },
+        },
+    }
+    : undefined;
 
 
 export const auth = betterAuth({
@@ -21,23 +39,7 @@ export const auth = betterAuth({
         enabled: true,
         requireEmailVerification:true,
     },
-      socialProviders:{
-        google:{
-            clientId: envVars.Google_Client_ID,
-            clientSecret: envVars.Google_Client_Secret,
-            // callbackUrl: envVars.GOOGLE_CALLBACK_URL,
-            mapProfileToUser: ()=>{
-                return {
-                    role : Role.CUSTOMER,
-                    status : userStatus.ACTIVE,
-                    needPasswordChange : false,
-                    emailVerified : true,
-                    isDeleted : false,
-                    deletedAt : null,
-                }
-            }
-        }
-    },
+      ...(googleProvider ? { socialProviders: googleProvider } : {}),
        emailVerification:{
         sendOnSignUp: true,
         sendOnSignIn: true,
