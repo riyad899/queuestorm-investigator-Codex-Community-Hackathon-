@@ -1,4 +1,5 @@
 import status from "http-status";
+import { Prisma } from "@prisma/client";
 import AppError from "../../errorHelpers/appError.js";
 import { prisma } from "../../lib/prisma.js";
 import {
@@ -1042,35 +1043,86 @@ const getProducts = async (query: ICatalogFilterQuery) => {
       key !== "limit",
   );
 
+  const baseWhere: Prisma.ProductWhereInput = {
+    ...buildProductSubCategoryWhere(subCategoryId),
+    ...(brandSlug
+      ? {
+          brand: {
+            slug: brandSlug,
+          },
+        }
+      : {}),
+    ...(brandId ? { brandId } : {}),
+    ...(isFeatured !== undefined ? { isFeatured } : {}),
+    ...((priceMin !== undefined || priceMax !== undefined)
+      ? {
+          price: {
+            ...(priceMin !== undefined ? { gte: priceMin } : {}),
+            ...(priceMax !== undefined ? { lte: priceMax } : {}),
+          },
+        }
+      : {}),
+    ...(searchTerm
+      ? {
+          title: {
+            contains: searchTerm,
+            mode: Prisma.QueryMode.insensitive,
+          },
+        }
+      : {}),
+  };
+
+  if (filters.length === 0) {
+    const [total, pagedProducts] = await prisma.$transaction([
+      prisma.product.count({ where: baseWhere }),
+      prisma.product.findMany({
+        where: baseWhere,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          brand: true,
+          subCategory: {
+            include: {
+              category: true,
+            },
+          },
+          productSubCategories: {
+            include: {
+              subCategory: {
+                include: {
+                  category: true,
+                },
+              },
+            },
+          },
+          specifications: {
+            include: {
+              field: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                  options: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+      data: pagedProducts,
+    };
+  }
+
   const products = await prisma.product.findMany({
-    where: {
-      ...buildProductSubCategoryWhere(subCategoryId),
-      ...(brandSlug
-        ? {
-            brand: {
-              slug: brandSlug,
-            },
-          }
-        : {}),
-      ...(brandId ? { brandId } : {}),
-      ...(isFeatured !== undefined ? { isFeatured } : {}),
-      ...((priceMin !== undefined || priceMax !== undefined)
-        ? {
-            price: {
-              ...(priceMin !== undefined ? { gte: priceMin } : {}),
-              ...(priceMax !== undefined ? { lte: priceMax } : {}),
-            },
-          }
-        : {}),
-      ...(searchTerm
-        ? {
-            title: {
-              contains: searchTerm,
-              mode: "insensitive",
-            },
-          }
-        : {}),
-    },
+    where: baseWhere,
     orderBy: { createdAt: "desc" },
     include: {
       brand: true,
@@ -1104,16 +1156,6 @@ const getProducts = async (query: ICatalogFilterQuery) => {
   });
 
   const totalBeforeSpecFilters = products.length;
-
-  if (filters.length === 0) {
-    return {
-      total: totalBeforeSpecFilters,
-      page,
-      limit,
-      totalPages: Math.ceil(totalBeforeSpecFilters / limit) || 1,
-      data: products.slice(skip, skip + limit),
-    };
-  }
 
   const fieldLookups = await prisma.specificationField.findMany({
     where: subCategoryId
