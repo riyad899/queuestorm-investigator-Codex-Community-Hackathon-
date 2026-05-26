@@ -115,6 +115,26 @@ This project is ready to deploy on Render as a Node.js web service.
 
 Optional `render.yaml` is included in the repository so you can deploy with Render Blueprints.
 
+## Deploying to Vercel
+
+This project can also be deployed manually to Vercel as a serverless Node.js API.
+
+1. Import the repository into Vercel as a new project.
+2. Leave the framework preset as `Other` if Vercel does not auto-detect it.
+3. Use the default build command, or set it to `npm run vercel-build`.
+4. Set the required environment variables in Vercel.
+	- `DATABASE_URL`
+	- `BETTER_AUTH_SECRET`
+	- `ACCESS_TOKEN_SECRET`
+	- `REFRESH_TOKEN_SECRET`
+	- `ACCESS_TOKEN_EXPIRES_IN`
+	- `REFRESH_TOKEN_EXPIRES_IN`
+	- `BETTER_AUTH_SESSION_EXPIRES_IN`
+	- `BETTER_AUTH_SEASSION_UPDATE_AGE`
+	- `BETTER_AUTH_URL` should be your Vercel backend URL if you want to override the automatic fallback.
+	- `FRONTEND_URL` should be your deployed frontend URL.
+5. Deploy the project. The API will be served through the serverless handler in `api/index.ts`.
+
 ## API Routes
 
 Base URL: `http://localhost:<PORT>/api/v1`

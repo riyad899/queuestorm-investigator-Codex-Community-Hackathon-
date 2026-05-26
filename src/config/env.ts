@@ -30,6 +30,18 @@ const getRenderExternalUrl = () => {
     return undefined;
 };
 
+const getVercelExternalUrl = () => {
+    if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+        return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+    }
+
+    if (process.env.VERCEL_URL) {
+        return `https://${process.env.VERCEL_URL}`;
+    }
+
+    return undefined;
+};
+
 interface EnvConfig {
     NODE_ENV: string;
     PORT: string;
@@ -57,7 +69,6 @@ interface EnvConfig {
 
 const LoadEnvVarialbes = (): EnvConfig => {
     const requiredEnvVars = [
-        "PORT",
         "DATABASE_URL",
         "BETTER_AUTH_SECRET",
         "ACCESS_TOKEN_SECRET",
@@ -97,7 +108,7 @@ const LoadEnvVarialbes = (): EnvConfig => {
         PORT: process.env.PORT ?? "8000",
         DATABASE_URL: process.env.DATABASE_URL as string,
         BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET as string,
-        BETTER_AUTH_URL: normalizeUrl(process.env.BETTER_AUTH_URL ?? getRenderExternalUrl() ?? "http://localhost:8000"),
+        BETTER_AUTH_URL: normalizeUrl(process.env.BETTER_AUTH_URL ?? getVercelExternalUrl() ?? getRenderExternalUrl() ?? "http://localhost:8000"),
         ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET as string,
         REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET as string,
         ACCESS_TOKEN_EXPIRES_IN: process.env.ACCESS_TOKEN_EXPIRES_IN as string,

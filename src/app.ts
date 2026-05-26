@@ -7,10 +7,21 @@ import { globalErrorHandler } from './middleware/globalErrorHandeler.js';
 import { notFoundHandler } from './middleware/notFound.js';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './app/lib/auth.js';
-import { envVars } from './config/env.js';
 import cors from "cors";
+import { envVars } from "./config/env.js";
 
 const app:Application = express();
+
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  console.log(`[request] ${req.method} ${req.originalUrl} started`);
+
+  res.on("finish", () => {
+    console.log(`[request] ${req.method} ${req.originalUrl} finished ${res.statusCode} ${Date.now() - startedAt}ms`);
+  });
+
+  next();
+});
 
 // Required behind Vercel/other reverse proxies so secure cookies and OAuth
 // callback flows work correctly across HTTPS origins.
@@ -21,17 +32,19 @@ app.use(express.json());
 // Enable URL-encoded form data parsing
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors({
-    origin : [envVars.FRONTEND_URL, envVars.BETTER_AUTH_URL,
-       "http://localhost:3000",
-       "http://localhost:5000",
-       "http://localhost:8000",
-      'https://ecom-backend-theta-ten.vercel.app'
-    ],
-    credentials : true,
-    methods : ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders : ["Content-Type", "Authorization"]
-}))
+
+const allowedOrigins = [
+  envVars.FRONTEND_URL,
+  "http://localhost:3000",
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+    exposedHeaders: ["X-Session-Refresh", "X-Session-Expires-At", "X-Time-Remaining"],
+  })
+);
 
 app.use("/api/auth", toNodeHandler(auth));
 

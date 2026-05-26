@@ -11,92 +11,69 @@ import { envVars } from "../config/env.js";
 
 export const checkAuth = (...authRoles: Role[]) => async (req: Request, res: Response, next: NextFunction) => {
     try {
+        // 1. Try Authorization: Bearer <token> header first (works cross-origin)
+        const authHeader = req.headers.authorization;
+        let accessToken: string | undefined;
 
-        //Session Token Verification
-        const sessionToken = CookieUtils.getCookie(req, "better-auth.session_token");
-
-        if (!sessionToken) {
-            throw new Error('Unauthorized access! No session token provided.');
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            accessToken = authHeader.slice(7);
         }
 
-        if (sessionToken) {
-            const sessionExists = await prisma.session.findFirst({
-                where: {
-                    token: sessionToken,
-                    expiresAt: {
-                        gt: new Date(),
-                    }
-                },
-                include: {
-                    user: true,
-                }
-            })
-
-            if (sessionExists && sessionExists.user) {
-                const user = sessionExists.user;
-
-                const now = new Date();
-                const expiresAt = new Date(sessionExists.expiresAt)
-                const createdAt = new Date(sessionExists.createdAt)
-
-                const sessionLifeTime = expiresAt.getTime() - createdAt.getTime();
-                const timeRemaining = expiresAt.getTime() - now.getTime();
-                const percentRemaining = (timeRemaining / sessionLifeTime) * 100;
-
-                if (percentRemaining < 20) {
-                    res.setHeader('X-Session-Refresh', 'true');
-                    res.setHeader('X-Session-Expires-At', expiresAt.toISOString());
-                    res.setHeader('X-Time-Remaining', timeRemaining.toString());
-
-                    console.log("Session Expiring Soon!!");
-                }
-
-                if (user.status === userStatus.BLOCKED || user.status === userStatus.DELETED) {
-                    throw new AppError('Unauthorized access! User is not active.', status.UNAUTHORIZED);
-                }
-
-                if (user.isdeleted) {
-                    throw new AppError('Unauthorized access! User is deleted.', status.UNAUTHORIZED);
-                }
-
-                if (authRoles.length > 0 && !authRoles.includes(user.role)) {
-                    throw new AppError('Forbidden access! You do not have permission to access this resource.', status.FORBIDDEN);
-                }
-
-                req.user = {
-                    userId : user.id,
-                    role : user.role,
-                    email : user.email,
-                }
-            }
-
-            const accessToken = CookieUtils.getCookie(req, 'accessToken');
-
-            if (!accessToken) {
-                throw new AppError('Unauthorized access! No access token provided.', status.UNAUTHORIZED);
-            }
-
-
+        // 2. Fallback to cookie (works for same-origin / localhost)
+        if (!accessToken) {
+            accessToken = CookieUtils.getCookie(req, "accessToken");
         }
-
-        //Access Token Verification
-        const accessToken = CookieUtils.getCookie(req, 'accessToken');
 
         if (!accessToken) {
             throw new AppError('Unauthorized access! No access token provided.', status.UNAUTHORIZED);
         }
 
+        // 3. Verify JWT
         const verifiedToken = jwtUtils.verifyToken(accessToken, envVars.ACCESS_TOKEN_SECRET);
 
-        if (!verifiedToken.success) {
+        if (!verifiedToken.success || !verifiedToken.data) {
             throw new AppError('Unauthorized access! Invalid access token.', status.UNAUTHORIZED);
         }
 
-        if (authRoles.length > 0 && !authRoles.includes(verifiedToken.data!.role as Role)) {
+        const tokenData = verifiedToken.data;
+
+        // 4. Verify user exists and is active
+        const user = await prisma.user.findUnique({
+            where: { id: tokenData.userId },
+            select: {
+                id: true,
+                email: true,
+                role: true,
+                status: true,
+                isdeleted: true,
+            },
+        });
+
+        if (!user) {
+            throw new AppError('Unauthorized access! User not found.', status.UNAUTHORIZED);
+        }
+
+        if (user.status === userStatus.BLOCKED || user.status === userStatus.DELETED) {
+            throw new AppError('Unauthorized access! User is not active.', status.UNAUTHORIZED);
+        }
+
+        if (user.isdeleted) {
+            throw new AppError('Unauthorized access! User is deleted.', status.UNAUTHORIZED);
+        }
+
+        // 5. Check role authorization
+        if (authRoles.length > 0 && !authRoles.includes(user.role)) {
             throw new AppError('Forbidden access! You do not have permission to access this resource.', status.FORBIDDEN);
         }
 
-        next()
+        // 6. Attach user to request
+        req.user = {
+            userId: user.id,
+            role: user.role,
+            email: user.email,
+        };
+
+        next();
     } catch (error: any) {
         next(error);
     }

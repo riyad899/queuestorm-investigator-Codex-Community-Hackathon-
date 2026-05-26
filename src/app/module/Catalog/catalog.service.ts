@@ -1073,7 +1073,7 @@ const getProducts = async (query: ICatalogFilterQuery) => {
   };
 
   if (filters.length === 0) {
-    const [total, pagedProducts] = await prisma.$transaction([
+    const [total, pagedProducts] = await Promise.all([
       prisma.product.count({ where: baseWhere }),
       prisma.product.findMany({
         where: baseWhere,

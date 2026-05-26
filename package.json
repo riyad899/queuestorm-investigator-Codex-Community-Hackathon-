@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node dist/server.js",
     "build": "npm run generate && tsc -p .",
+    "vercel-build": "npm run build",
     "dev": "tsx watch src/server.ts",
     "lint": "eslint ./src",
     "generate": "prisma generate",

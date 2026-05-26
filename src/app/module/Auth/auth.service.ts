@@ -284,6 +284,52 @@ const getNewToken = async (refreshToken: string, sessionToken: string) => {
   return { accessToken: newAccessToken, refreshToken: newRefreshToken, sessionToken: token };
 };
 
+const getNewTokenFromRefresh = async (refreshToken: string) => {
+  const verifiedRefreshToken = jwtUtils.verifyToken(refreshToken, envVars.REFRESH_TOKEN_SECRET);
+  if (!verifiedRefreshToken.success || !verifiedRefreshToken.data) {
+    throw new AppError("Invalid refresh token", status.UNAUTHORIZED);
+  }
+
+  const data = verifiedRefreshToken.data as JwtPayload;
+
+  const user = await prisma.user.findUnique({
+    where: { id: data.userId },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      status: true,
+      isdeleted: true,
+    },
+  });
+
+  if (!user || user.status === userStatus.BLOCKED || user.status === userStatus.DELETED || user.isdeleted) {
+    throw new AppError("User account is inactive or deleted.", status.UNAUTHORIZED);
+  }
+
+  const newAccessToken = tokenUtils.getAccessToken({
+    userId: user.id,
+    role: user.role,
+    name: data.name,
+    email: user.email,
+    status: user.status,
+    isDeleted: user.isdeleted,
+    emailVerified: data.emailVerified,
+  });
+
+  const newRefreshToken = tokenUtils.getRefreshToken({
+    userId: user.id,
+    role: user.role,
+    name: data.name,
+    email: user.email,
+    status: user.status,
+    isDeleted: user.isdeleted,
+    emailVerified: data.emailVerified,
+  });
+
+  return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+};
+
 const logoutUser = async (sessionToken: string) => {
   return await auth.api.signOut({ headers: new Headers({ Authorization: `Bearer ${sessionToken}` }) });
 };
@@ -479,7 +525,7 @@ const requestPasswordResetOTPDirect = async (email: string) => {
 };
 
 export const authService = {
-  register, LoginUser, updateCustomer, getMyCustomerProfile, updateCustomerById, changePassword, getNewToken, getMe,
+  register, LoginUser, updateCustomer, getMyCustomerProfile, updateCustomerById, changePassword, getNewToken, getNewTokenFromRefresh, getMe,
   logoutUser, verifyEmail, forgetPassword, resetPassword, googleLoginSuccess,
   requestEmailVerificationOTP, requestPasswordResetOTPDirect,
 };

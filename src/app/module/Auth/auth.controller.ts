@@ -9,6 +9,24 @@ import { CookieUtils } from "../../utils/cookie.js";
 import { envVars } from "../../../config/env.js";
 import { auth } from "../../lib/auth.js";
 
+const getFrontendBaseUrl = (req: Request) => {
+  const originCandidates = [req.headers.origin, req.headers.referer];
+
+  for (const candidate of originCandidates) {
+    if (typeof candidate !== "string" || candidate.length === 0) {
+      continue;
+    }
+
+    try {
+      return new URL(candidate).origin;
+    } catch {
+      continue;
+    }
+  }
+
+  return envVars.FRONTEND_URL;
+};
+
 const register = catchAsync(async (req, res) => {
   const { name, email, password, age, address, contact } = req.body;
   const result = await authService.register(
@@ -130,44 +148,64 @@ const updateCustomer = catchAsync(async (req, res) => {
 });
 
 const getNewToken = catchAsync(async (req: Request, res: Response) => {
-  const refreshToken = req.cookies.refreshToken;
-  const betterAuthSessionToken = req.cookies["better-auth.session_token"];
+  // Accept refreshToken from body (Bearer token flow) or cookies (legacy)
+  const refreshToken = req.body.refreshToken || req.cookies.refreshToken;
   if (!refreshToken) {
     throw new AppError("Refresh token is missing", status.UNAUTHORIZED);
   }
-  const result = await authService.getNewToken(refreshToken, betterAuthSessionToken);
-  const { accessToken, refreshToken: newRefreshToken, sessionToken } = result;
+  const result = await authService.getNewTokenFromRefresh(refreshToken);
+  const { accessToken, refreshToken: newRefreshToken } = result;
 
+  // Also set cookies for backward compat
   tokenUtils.setAccessTokenCookie(res, accessToken);
   tokenUtils.setRefreshTokenCookie(res, newRefreshToken);
-  tokenUtils.setBetterAuthSessionCookie(res, sessionToken);
 
   sendResponse(res, {
     httpStatus: status.OK,
     success: true,
     message: "New tokens generated successfully",
-    data: { accessToken, refreshToken: newRefreshToken, sessionToken },
+    data: { accessToken, refreshToken: newRefreshToken },
   });
 });
 
 const changePassword = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
-  const betterAuthSessionToken = req.cookies["better-auth.session_token"];
+  // Accept session token from Authorization header or cookie
+  const authHeader = req.headers.authorization;
+  const betterAuthSessionToken = (authHeader && authHeader.startsWith("Bearer "))
+    ? authHeader.slice(7)
+    : req.cookies["better-auth.session_token"];
   const result = await authService.changePassword(payload, betterAuthSessionToken);
   const { accessToken, refreshToken, token } = result;
 
   tokenUtils.setAccessTokenCookie(res, accessToken);
   tokenUtils.setRefreshTokenCookie(res, refreshToken);
-  tokenUtils.setBetterAuthSessionCookie(res, token as string);
+  if (typeof token === "string" && token.length > 0) {
+    tokenUtils.setBetterAuthSessionCookie(res, token);
+  }
 
-  sendResponse(res, { httpStatus: status.OK, success: true, message: "Password changed successfully", data: result });
+  sendResponse(res, { httpStatus: status.OK, success: true, message: "Password changed successfully", data: { accessToken, refreshToken } });
 });
 
 const logoutUser = catchAsync(async (req: Request, res: Response) => {
-  const betterAuthSessionToken = req.cookies["better-auth.session_token"];
-  const result = await authService.logoutUser(betterAuthSessionToken);
+  // Accept session token from Authorization header or cookie
+  const authHeader = req.headers.authorization;
+  const betterAuthSessionToken = (authHeader && authHeader.startsWith("Bearer "))
+    ? authHeader.slice(7)
+    : req.cookies["better-auth.session_token"];
+
+  let result = null;
+  if (betterAuthSessionToken) {
+    try {
+      result = await authService.logoutUser(betterAuthSessionToken);
+    } catch {
+      // If session token is invalid (JWT vs session token), just clear cookies
+    }
+  }
+
   CookieUtils.clearCookie(res, 'accessToken', { httpOnly: true, secure: true, sameSite: "none" });
   CookieUtils.clearCookie(res, 'refreshToken', { httpOnly: true, secure: true, sameSite: "none" });
+  CookieUtils.clearCookie(res, 'token', { httpOnly: true, secure: true, sameSite: "none" });
   CookieUtils.clearCookie(res, 'better-auth.session_token', { httpOnly: true, secure: true, sameSite: "none" });
   sendResponse(res, { httpStatus: status.OK, success: true, message: "User logged out successfully", data: result });
 });
@@ -189,6 +227,7 @@ const googleLogin = catchAsync(async (req: Request, res: Response) => {
   const redirectPath = req.query.redirect || "/";
   const encodedRedirectPath = encodeURIComponent(redirectPath as string);
   const callbackURL = `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success?redirect=${encodedRedirectPath}`;
+  const frontendBaseUrl = getFrontendBaseUrl(req);
 
   const response = await fetch(`${envVars.BETTER_AUTH_URL}/api/auth/sign-in/social`, {
     method: "POST",
@@ -202,7 +241,7 @@ const googleLogin = catchAsync(async (req: Request, res: Response) => {
   });
 
   if (!response.ok) {
-    return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_failed`);
+    return res.redirect(`${frontendBaseUrl}/login?error=oauth_failed`);
   }
 
   const data = await response.json() as { url?: string };
@@ -218,7 +257,7 @@ const googleLogin = catchAsync(async (req: Request, res: Response) => {
   }
 
   if (!data.url) {
-    return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_failed`);
+    return res.redirect(`${frontendBaseUrl}/login?error=oauth_failed`);
   }
 
   return res.redirect(data.url);
@@ -226,44 +265,51 @@ const googleLogin = catchAsync(async (req: Request, res: Response) => {
 
 const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
     const redirectPath = req.query.redirect as string || "/";
+  const frontendBaseUrl = getFrontendBaseUrl(req);
 
-    const sessionToken = req.cookies["better-auth.session_token"];
-
-    if(!sessionToken){
-        return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_failed`);
-    }
-
-    const session = await auth.api.getSession({
-        headers:{
-            "Cookie" : `better-auth.session_token=${sessionToken}`
-        }
-    })
+  const sessionToken = req.cookies["better-auth.session_token"];
+  const session = await auth.api.getSession({
+    headers: {
+      ...req.headers,
+      ...(sessionToken ? { Cookie: `better-auth.session_token=${sessionToken}` } : {}),
+    } as any,
+  });
 
     if (!session) {
-        return res.redirect(`${envVars.FRONTEND_URL}/login?error=no_session_found`);
+    return res.redirect(`${frontendBaseUrl}/signin?error=no_session_found`);
     }
 
 
     if(session && !session.user){
-        return res.redirect(`${envVars.FRONTEND_URL}/login?error=no_user_found`);
+    return res.redirect(`${frontendBaseUrl}/signin?error=no_user_found`);
     }
 
     const result = await authService.googleLoginSuccess(session);
 
     const {accessToken, refreshToken} = result;
 
+    // Also set cookies for backward compat (localhost)
     tokenUtils.setAccessTokenCookie(res, accessToken);
     tokenUtils.setRefreshTokenCookie(res, refreshToken);
- // ?redirect=//profile -> /profile
+
+    // Redirect to frontend social-success page with tokens in URL
+    // The frontend page will save them to localStorage and redirect
     const isValidRedirectPath = redirectPath.startsWith("/") && !redirectPath.startsWith("//");
     const finalRedirectPath = isValidRedirectPath ? redirectPath : "/";
 
-    res.redirect(`${envVars.FRONTEND_URL}${finalRedirectPath}`);
+    const params = new URLSearchParams({
+      token: accessToken,
+      refreshToken: refreshToken,
+      redirect: finalRedirectPath,
+    });
+
+    res.redirect(`${frontendBaseUrl}/auth/social-success?${params.toString()}`);
 })
 
 const handleOAuthError = catchAsync((req: Request, res: Response) => {
   const error = req.query.error as string || "oauth_failed";
-  res.redirect(`${envVars.FRONTEND_URL}/login?error=${error}`);
+  const frontendBaseUrl = getFrontendBaseUrl(req);
+  res.redirect(`${frontendBaseUrl}/login?error=${error}`);
 });
 
 const requestEmailVerificationOTP = catchAsync(async (req: Request, res: Response) => {

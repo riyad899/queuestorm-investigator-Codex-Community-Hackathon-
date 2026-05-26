@@ -31,13 +31,10 @@ const getRefreshToken = (payload: JwtPayload) => {
 
 
 const setAccessTokenCookie = (res: Response, token: string) => {
-    CookieUtils.setCookie(res, 'accessToken', token, {
+    res.cookie("token", token, {
         httpOnly: true,
-        secure: useSecureCookies,
-        sameSite: authCookieSameSite,
-        path: '/',
-        //1 day
-        maxAge: 60 * 60 * 24 * 1000,
+        secure: true,
+        sameSite: "none",
     });
 }
 
