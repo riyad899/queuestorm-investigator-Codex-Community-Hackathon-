@@ -3,7 +3,7 @@ import { Role } from "@prisma/client";
 import { checkAuth } from "../../../middleware/checkAuth.js";
 import { validateZodSchema } from "../../../middleware/validateReq.js";
 import { AdminController } from "./admin.controller.js";
-import { updateAdminZodSchema } from "./admin.validation.js";
+import { updateAdminZodSchema, updateAdminRoleZodSchema } from "./admin.validation.js";
 
 const router = Router();
 
@@ -16,6 +16,12 @@ router.get("/:id",
 router.patch("/:id",
     checkAuth(Role.SUPER_ADMIN),
     validateZodSchema(updateAdminZodSchema), AdminController.updateAdmin);
+router.patch(
+    "/:id/role",
+    checkAuth(Role.SUPER_ADMIN),
+    validateZodSchema(updateAdminRoleZodSchema),
+    AdminController.changeUserRole,
+);
 router.delete("/:id",
     checkAuth(Role.SUPER_ADMIN),
     AdminController.deleteAdmin);

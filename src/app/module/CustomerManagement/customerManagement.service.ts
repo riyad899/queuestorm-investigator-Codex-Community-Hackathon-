@@ -14,17 +14,17 @@ const parseLimit = (value: string | undefined) => {
   if (!Number.isFinite(n) || n <= 0) {
     return undefined;
   }
-  return Math.min(200, Math.floor(n));
+  return Math.min(1000, Math.floor(n));
 };
 
 export const getCustomers = async (query: ICustomerListQuery) => {
   const search = typeof query.search === "string" ? query.search.trim() : undefined;
   const limit = parseLimit(query.limit);
 
+  // Return ALL users (not just CUSTOMER) so admin can manage everyone
   return prisma.user.findMany({
     where: {
       AND: [
-        { role: Role.CUSTOMER },
         { isdeleted: false },
         query.status ? { status: query.status } : {},
         search
@@ -84,25 +84,28 @@ export const updateCustomerStatus = async (
   requester: IRequestUser,
 ) => {
   const existing = await prisma.user.findFirst({
-    where: {
-      id,
-      role: Role.CUSTOMER,
-    },
+    where: { id },
   });
 
   if (!existing) {
-    throw new AppError("Customer not found", status.NOT_FOUND);
+    throw new AppError("User not found", status.NOT_FOUND);
   }
 
   if (existing.isdeleted) {
-    throw new AppError("Customer is deleted", status.BAD_REQUEST);
+    throw new AppError("User is deleted", status.BAD_REQUEST);
+  }
+
+  // Prevent changing own status
+  if (existing.id === requester.userId) {
+    throw new AppError("You cannot change your own status", status.BAD_REQUEST);
+  }
+
+  // Only SUPER_ADMIN can change SUPER_ADMIN status
+  if (existing.role === Role.SUPER_ADMIN && requester.role !== Role.SUPER_ADMIN) {
+    throw new AppError("Only SUPER_ADMIN can change super admin user status", status.FORBIDDEN);
   }
 
   if (payload.status === userStatus.DELETED) {
-    if (existing.id === requester.userId) {
-      throw new AppError("You cannot delete yourself", status.BAD_REQUEST);
-    }
-
     return prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id },
@@ -138,23 +141,30 @@ export const updateCustomerRole = async (
   requester: IRequestUser,
 ) => {
   const existing = await prisma.user.findFirst({
-    where: {
-      id,
-      role: Role.CUSTOMER,
-    },
+    where: { id },
   });
 
   if (!existing) {
-    throw new AppError("Customer not found", status.NOT_FOUND);
+    throw new AppError("User not found", status.NOT_FOUND);
   }
 
   if (existing.isdeleted) {
-    throw new AppError("Customer is deleted", status.BAD_REQUEST);
+    throw new AppError("User is deleted", status.BAD_REQUEST);
   }
 
-  // Only SUPER_ADMIN can promote to ADMIN/SUPER_ADMIN
-  if ((payload.role === Role.ADMIN || payload.role === Role.SUPER_ADMIN) && requester.role !== Role.SUPER_ADMIN) {
-    throw new AppError("Only SUPER_ADMIN can assign admin roles", status.FORBIDDEN);
+  // Prevent changing own role
+  if (existing.id === requester.userId) {
+    throw new AppError("You cannot change your own role", status.BAD_REQUEST);
+  }
+
+  // Only SUPER_ADMIN can assign SUPER_ADMIN role
+  if (payload.role === Role.SUPER_ADMIN && requester.role !== Role.SUPER_ADMIN) {
+    throw new AppError("Only SUPER_ADMIN can assign SUPER_ADMIN role", status.FORBIDDEN);
+  }
+
+  // Only SUPER_ADMIN can change roles of existing SUPER_ADMIN users
+  if (existing.role === Role.SUPER_ADMIN && requester.role !== Role.SUPER_ADMIN) {
+    throw new AppError("Only SUPER_ADMIN can change super admin user roles", status.FORBIDDEN);
   }
 
   return prisma.user.update({

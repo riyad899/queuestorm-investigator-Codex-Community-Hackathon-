@@ -65,9 +65,25 @@ const deleteAdmin = catchAsync(
 
 )
 
+const changeUserRole = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { role } = req.body;
+    const user = req.user;
+
+    const updated = await AdminService.changeUserRole(id as string, { role }, user);
+
+    sendResponse(res, {
+        httpStatus: status.OK,
+        success: true,
+        message: "User role updated successfully",
+        data: updated,
+    });
+});
+
 export const AdminController = {
     getAllAdmins,
     updateAdmin,
     deleteAdmin,
     getAdminById,
+    changeUserRole,
 };

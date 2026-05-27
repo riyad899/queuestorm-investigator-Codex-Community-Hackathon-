@@ -5,6 +5,10 @@ import { IRequestUser } from "../../interfaces/requestUser.interface.js";
 import { prisma } from "../../lib/prisma.js";
 import { IUpdateAdminPayload } from "./admin.interface.js";
 
+interface IChangeRolePayload {
+    role: Role;
+}
+
 const getAllAdmins = async () => {
     const admins = await prisma.user.findMany({
         where: {
@@ -119,4 +123,25 @@ export const AdminService = {
     getAdminById,
     updateAdmin,
     deleteAdmin,
+    changeUserRole,
+}
+
+async function changeUserRole(id: string, payload: IChangeRolePayload, requester: IRequestUser) {
+    const user = await prisma.user.findUnique({ where: { id } });
+
+    if (!user) throw new AppError("User not found", status.NOT_FOUND);
+
+    // Prevent changing own role
+    if (user.id === requester.userId) {
+        throw new AppError("You cannot change your own role", status.BAD_REQUEST);
+    }
+
+    // Only SUPER_ADMIN can assign SUPER_ADMIN
+    if (payload.role === Role.SUPER_ADMIN && requester.role !== Role.SUPER_ADMIN) {
+        throw new AppError("Only SUPER_ADMIN can assign SUPER_ADMIN role", status.FORBIDDEN);
+    }
+
+    const updated = await prisma.user.update({ where: { id }, data: { role: payload.role } });
+
+    return updated;
 }

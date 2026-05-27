@@ -1,4 +1,5 @@
 import z from "zod";
+import { Role } from "@prisma/client";
 
 export const updateAdminZodSchema = z.object({
     admin: z.object({
@@ -7,3 +8,7 @@ export const updateAdminZodSchema = z.object({
         status: z.enum(["ACTIVE", "INACTIVE", "DELETED", "BLOCKED"]).optional(),
     }).optional()
 })
+
+export const updateAdminRoleZodSchema = z.object({
+    role: z.nativeEnum(Role),
+});

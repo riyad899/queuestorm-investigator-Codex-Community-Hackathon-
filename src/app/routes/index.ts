@@ -20,6 +20,8 @@ import { DashboardNotificationRoute } from "../module/DashboardNotification/dash
 import { PaymentSettingRoute } from "../module/PaymentSetting/paymentSetting.route.js";
 import { CustomerNotificationRoute } from "../module/CustomerNotification/customerNotification.route.js";
 import { PCBuildRoute } from "../module/PCBuild/pcBuild.route.js";
+import { ContactRoute } from "../module/Contact/contact.route.js";
+import { ComplaintRoute } from "../module/Complaint/complaint.route.js";
 
 const router = Router();
 
@@ -44,5 +46,7 @@ router.use("/", DashboardNotificationRoute);
 router.use("/", PaymentSettingRoute);
 router.use("/", PCBuildRoute);
 router.use("/", CustomerNotificationRoute);
+router.use("/", ContactRoute);
+router.use("/", ComplaintRoute);
 
 export const IndexRoute = router;

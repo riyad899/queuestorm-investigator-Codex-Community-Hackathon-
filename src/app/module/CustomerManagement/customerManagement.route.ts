@@ -37,7 +37,7 @@ router.patch(
 
 router.patch(
   "/:id/role",
-  checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF),
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
   validateZodSchema(updateCustomerRoleZodSchema),
   customerManagementController.updateCustomerRole,
 );
