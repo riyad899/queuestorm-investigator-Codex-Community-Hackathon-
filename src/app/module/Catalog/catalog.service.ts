@@ -902,6 +902,58 @@ const getCatalogHierarchy = async () => {
   };
 };
 
+const getCategoryDetails = async (categoryId: string) => {
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    include: {
+      subCategories: {
+        orderBy: { name: "asc" },
+        include: {
+          specificationGroups: {
+            orderBy: { name: "asc" },
+            include: {
+              fields: {
+                orderBy: { name: "asc" },
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                  options: true,
+                  groupId: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!category) {
+    throw new AppError("Category not found", status.NOT_FOUND);
+  }
+
+  const totalSubCategories = category.subCategories.length;
+  const totalGroups = category.subCategories.reduce((acc, sc) => acc + sc.specificationGroups.length, 0);
+  const totalSpecFields = category.subCategories.reduce(
+    (acc, sc) => acc + sc.specificationGroups.reduce((gAcc, g) => gAcc + g.fields.length, 0),
+    0,
+  );
+
+  return {
+    category: { id: category.id, name: category.name },
+    totalSubCategories,
+    totalGroups,
+    totalSpecFields,
+    subCategories: category.subCategories.map((sc) => ({
+      id: sc.id,
+      name: sc.name,
+      groupsCount: sc.specificationGroups.length,
+      specGroups: sc.specificationGroups.map((g) => ({ id: g.id, name: g.name, fields: g.fields })),
+    })),
+  };
+};
+
 const validateSpecificationFields = async (subCategoryId: string, specifications: NonNullable<ICreateProductPayload["specifications"]>) => {
   const groups = await prisma.specificationGroup.findMany({
     where: { subCategoryId },
@@ -1834,6 +1886,7 @@ export const CatalogService = {
   getSpecificationGroupById,
   getSpecificationGroupsWithFields,
   getCatalogHierarchy,
+  getCategoryDetails,
   getSpecificationGroups,
   getSpecificationFields,
   getSpecificationFieldsBySubCategory,

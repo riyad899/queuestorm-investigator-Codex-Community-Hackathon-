@@ -314,6 +314,17 @@ const getCatalogHierarchy = catchAsync(async (_req: Request, res: Response) => {
   });
 });
 
+const getCategoryDetails = catchAsync(async (req: Request, res: Response) => {
+  const result = await CatalogService.getCategoryDetails(String(req.params.id));
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Category details fetched successfully",
+    data: result,
+  });
+});
+
 const getSpecifications = catchAsync(async (req: Request, res: Response) => {
   const subcategoryId = (req.query.subcategoryId ?? req.query.subCategoryId) as string | undefined;
 
@@ -545,6 +556,7 @@ export const CatalogController = {
   getSpecificationGroupById,
   getSpecificationGroupsWithFields,
   getCatalogHierarchy,
+  getCategoryDetails,
   getSpecificationGroups,
   getSpecificationFields,
   getSpecifications,

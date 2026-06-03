@@ -31,6 +31,7 @@ router.patch("/category/:id", validateZodSchema(updateCategoryZodSchema), Catalo
 router.delete("/category/:id", CatalogController.deleteCategory);
 router.put("/category/:id/feature", CatalogController.featureCategory);
 router.put("/category/:id/unfeature", CatalogController.unfeatureCategory);
+router.get("/category/:id/details", CatalogController.getCategoryDetails);
 
 router.post("/subcategory", validateZodSchema(createSubCategoryZodSchema), CatalogController.createSubCategory);
 router.get("/subcategory", CatalogController.getSubCategories);
