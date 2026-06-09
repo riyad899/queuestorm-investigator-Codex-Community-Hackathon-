@@ -18,7 +18,12 @@ const buildConnectionString = (value: string | undefined) => {
 	}
 
 	const databaseUrl = new URL(sanitizedValue);
-	databaseUrl.searchParams.set("connection_limit", "1");
+
+	// Allow configuring pool size via env var. For serverless you may set this
+	// to a low value; for local/dev increase to avoid transaction timeouts.
+	const poolEnv = process.env.PRISMA_POOL_MAX ?? process.env.DB_POOL_MAX ?? "4";
+	const poolSize = String(Number(poolEnv) || 4);
+	databaseUrl.searchParams.set("connection_limit", poolSize);
 
 	return databaseUrl.toString();
 };
@@ -62,11 +67,14 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 const createPrismaClient = () => {
+	const poolEnv = process.env.PRISMA_POOL_MAX ?? process.env.DB_POOL_MAX ?? "10";
+	const poolMax = Math.max(Number(poolEnv) || 10, 1);
+
 	const adapter = new PrismaPg({
 		connectionString,
-		connectionTimeoutMillis: 10_000,
-		idleTimeoutMillis: 10_000,
-		max: 1,
+		connectionTimeoutMillis: 30_000,
+		idleTimeoutMillis: 30_000,
+		max: poolMax,
 	});
 
 	return new PrismaClient({

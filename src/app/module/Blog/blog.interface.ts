@@ -19,6 +19,8 @@ export interface ICreateBlogPayload {
   tags: string[];
 }
 
+export type ICreateBlogBulkPayload = ICreateBlogPayload[];
+
 export interface IUpdateBlogPayload {
   title?: string;
   slug?: string;

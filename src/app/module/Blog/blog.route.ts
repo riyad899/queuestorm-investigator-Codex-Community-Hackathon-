@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { BlogController } from "./blog.controller.js";
 import { validateZodSchema } from "../../../middleware/validateReq.js";
-import { createBlogCategorySchema, createAuthorSchema, createBlogSchema, updateBlogSchema } from "./blog.validation.js";
+import { createBlogCategorySchema, createAuthorSchema, createBlogBulkSchema, createBlogSchema, updateBlogSchema } from "./blog.validation.js";
 
 const router = Router();
 
@@ -28,6 +28,12 @@ router.post(
   "/blog",
   validateZodSchema(createBlogSchema),
   BlogController.createBlog
+);
+
+router.post(
+  "/blog/bulk",
+  validateZodSchema(createBlogBulkSchema),
+  BlogController.createBlogBulk
 );
 
 router.get("/blog", BlogController.getBlogs);

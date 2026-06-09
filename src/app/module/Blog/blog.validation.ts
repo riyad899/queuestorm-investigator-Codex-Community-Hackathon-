@@ -21,6 +21,10 @@ export const createBlogSchema = z.object({
   tags: z.array(z.string()).min(1, "At least one tag is required"),
 });
 
+export const createBlogBulkSchema = z
+  .array(createBlogSchema)
+  .min(1, "At least one blog is required");
+
 export const updateBlogSchema = z.object({
   title: z.string().min(1).optional(),
   slug: z.string().min(1).optional(),
@@ -36,4 +40,5 @@ export const updateBlogSchema = z.object({
 export type CreateBlogCategoryInput = z.infer<typeof createBlogCategorySchema>;
 export type CreateAuthorInput = z.infer<typeof createAuthorSchema>;
 export type CreateBlogInput = z.infer<typeof createBlogSchema>;
+export type CreateBlogBulkInput = z.infer<typeof createBlogBulkSchema>;
 export type UpdateBlogInput = z.infer<typeof updateBlogSchema>;

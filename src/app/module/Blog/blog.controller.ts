@@ -83,6 +83,17 @@ export class BlogController {
     });
   });
 
+  static createBlogBulk = catchAsync(async (req: Request, res: Response) => {
+    const blogs = await BlogService.createBlogBulk(req.body);
+
+    sendResponse(res, {
+      httpStatus: 201,
+      success: true,
+      message: "Blogs created successfully",
+      data: blogs,
+    });
+  });
+
   static getBlogs = catchAsync(async (req: Request, res: Response) => {
     const { category, search } = req.query;
 

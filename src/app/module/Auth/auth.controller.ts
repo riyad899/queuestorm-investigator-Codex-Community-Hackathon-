@@ -265,7 +265,10 @@ const googleLogin = catchAsync(async (req: Request, res: Response) => {
 
 const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
     const redirectPath = req.query.redirect as string || "/";
-  const frontendBaseUrl = getFrontendBaseUrl(req);
+  // IMPORTANT: Do NOT use getFrontendBaseUrl(req) here.
+  // During Google OAuth flow, the request arrives via Google redirects,
+  // so req.headers.origin/referer point to accounts.google.com — not the frontend.
+  const frontendBaseUrl = envVars.FRONTEND_URL;
 
   const sessionToken = req.cookies["better-auth.session_token"];
   const session = await auth.api.getSession({
@@ -308,7 +311,8 @@ const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
 
 const handleOAuthError = catchAsync((req: Request, res: Response) => {
   const error = req.query.error as string || "oauth_failed";
-  const frontendBaseUrl = getFrontendBaseUrl(req);
+  // Use envVars.FRONTEND_URL directly (same reason as googleLoginSuccess)
+  const frontendBaseUrl = envVars.FRONTEND_URL;
   res.redirect(`${frontendBaseUrl}/login?error=${error}`);
 });
 
