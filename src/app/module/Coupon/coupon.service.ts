@@ -154,6 +154,20 @@ export const updateCoupon = async (id: string, payload: IUpdateCouponPayload) =>
   });
 };
 
+export const deleteCoupon = async (id: string) => {
+  const existing = await prisma.coupon.findUnique({ where: { id } });
+
+  if (!existing) {
+    throw new AppError("Coupon not found", status.NOT_FOUND);
+  }
+
+  await prisma.coupon.delete({
+    where: { id },
+  });
+
+  return { deleted: true, id };
+};
+
 const computeDiscountAmount = (args: {
   discountType: DiscountType;
   discountValue: number;

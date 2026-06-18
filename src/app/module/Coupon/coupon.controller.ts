@@ -48,6 +48,17 @@ export const updateCoupon = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+export const deleteCoupon = catchAsync(async (req: Request, res: Response) => {
+  const result = await couponService.deleteCoupon(String(req.params.id));
+
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Coupon deleted successfully",
+    data: result,
+  });
+});
+
 export const validateCoupon = catchAsync(async (req: Request, res: Response) => {
   const result = await couponService.validateCoupon(req.body);
 

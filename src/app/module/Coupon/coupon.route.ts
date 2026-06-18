@@ -15,15 +15,18 @@ const router = Router();
 router.post("/coupon/validate", validateZodSchema(validateCouponZodSchema), couponController.validateCoupon);
 
 // Dashboard coupon management
+router.delete("/coupon/:id", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), couponController.deleteCoupon);
 router.post(
   "/coupon",
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
   validateZodSchema(createCouponZodSchema),
   couponController.createCoupon,
 );
-router.get("/coupon", couponController.getCoupons);
-router.get("/coupon/:id", couponController.getCouponById);
+router.get("/coupon", checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF), couponController.getCoupons);
+router.get("/coupon/:id", checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.STAFF), couponController.getCouponById);
 router.patch(
   "/coupon/:id",
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
   validateZodSchema(updateCouponZodSchema),
   couponController.updateCoupon,
 );

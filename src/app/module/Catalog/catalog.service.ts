@@ -307,8 +307,31 @@ const deleteCategory = async (id: string) => {
     throw new AppError("Category not found", status.NOT_FOUND);
   }
 
-  await prisma.category.delete({
-    where: { id },
+  await prisma.$transaction(async (tx) => {
+    const products = await tx.product.findMany({
+      where: {
+        subCategory: {
+          categoryId: id,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (products.length > 0) {
+      await tx.productSpecification.deleteMany({
+        where: {
+          productId: {
+            in: products.map((product) => product.id),
+          },
+        },
+      });
+    }
+
+    await tx.category.delete({
+      where: { id },
+    });
   });
 
   return { deleted: true, id };
@@ -1073,6 +1096,8 @@ const createProductBulk = async (payload: ICreateProductBulkPayload) => {
 const getProducts = async (query: ICatalogFilterQuery) => {
   const searchTerm = typeof query.search === "string" ? query.search.trim() : undefined;
   const subCategoryId = query.subcategoryId ?? query.subCategoryId;
+  const categorySlug = typeof query.category === "string" ? query.category.trim() : undefined;
+  const subcategoryName = typeof query.subcategory === "string" ? query.subcategory.trim() : undefined;
   const brandSlug = typeof query.brand === "string" ? query.brand.trim() : undefined;
   const brandId = typeof query.brandId === "string" ? query.brandId.trim() : undefined;
   const isFeatured = getBooleanFilterValue(query.isFeatured);
@@ -1085,6 +1110,8 @@ const getProducts = async (query: ICatalogFilterQuery) => {
     ([key]) =>
       key !== "subcategoryId" &&
       key !== "subCategoryId" &&
+      key !== "category" &&
+      key !== "subcategory" &&
       key !== "search" &&
       key !== "brand" &&
       key !== "brandId" &&
@@ -1092,11 +1119,73 @@ const getProducts = async (query: ICatalogFilterQuery) => {
       key !== "priceMin" &&
       key !== "priceMax" &&
       key !== "page" &&
-      key !== "limit",
+      key !== "limit" &&
+      key !== "source" &&
+      key !== "slot",
   );
 
+  // ── Resolve category slug/name → subcategory IDs ──────────────────────────
+  let categorySubCategoryIds: string[] | undefined;
+  if (!subCategoryId && categorySlug) {
+    // Look up category by slug (exact, case-insensitive) or by name (case-insensitive)
+    const category = await prisma.category.findFirst({
+      where: {
+        OR: [
+          { slug: { equals: categorySlug, mode: "insensitive" } },
+          { name: { equals: categorySlug, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (category) {
+      const subCategories = await prisma.subCategory.findMany({
+        where: { categoryId: category.id },
+        select: { id: true },
+      });
+      categorySubCategoryIds = subCategories.map((sc) => sc.id);
+
+      // If a subcategory name is also provided, narrow down further
+      if (subcategoryName && categorySubCategoryIds.length > 0) {
+        const matchingSubs = await prisma.subCategory.findMany({
+          where: {
+            categoryId: category.id,
+            name: { equals: subcategoryName, mode: "insensitive" },
+          },
+          select: { id: true },
+        });
+        if (matchingSubs.length > 0) {
+          categorySubCategoryIds = matchingSubs.map((sc) => sc.id);
+        }
+      }
+    } else {
+      // Category not found — return empty results
+      categorySubCategoryIds = [];
+    }
+  }
+
+  // Build the subcategory filter: prefer explicit subCategoryId, then category-derived IDs
+  const buildSubCategoryFilter = (): Prisma.ProductWhereInput => {
+    if (subCategoryId) {
+      return buildProductSubCategoryWhere(subCategoryId);
+    }
+    if (categorySubCategoryIds !== undefined) {
+      if (categorySubCategoryIds.length === 0) {
+        // No matching subcategories — force empty result
+        return { id: { equals: "___no_match___" } };
+      }
+      return {
+        OR: [
+          { subCategoryId: { in: categorySubCategoryIds } },
+          { productSubCategories: { some: { subCategoryId: { in: categorySubCategoryIds } } } },
+        ],
+      };
+    }
+    return {};
+  };
+
   const baseWhere: Prisma.ProductWhereInput = {
-    ...buildProductSubCategoryWhere(subCategoryId),
+    ...buildSubCategoryFilter(),
     ...(brandSlug
       ? {
           brand: {
@@ -1676,6 +1765,8 @@ const getFieldOptions = async (fieldId: string) => {
 
 const getFilteredProductCount = async (query: ICatalogFilterQuery) => {
   const subCategoryId = query.subcategoryId ?? query.subCategoryId;
+  const categorySlug = typeof query.category === "string" ? query.category.trim() : undefined;
+  const subcategoryName = typeof query.subcategory === "string" ? query.subcategory.trim() : undefined;
   const brandSlug = typeof query.brand === "string" ? query.brand.trim() : undefined;
   const brandId = typeof query.brandId === "string" ? query.brandId.trim() : undefined;
   const isFeatured = getBooleanFilterValue(query.isFeatured);
@@ -1685,16 +1776,83 @@ const getFilteredProductCount = async (query: ICatalogFilterQuery) => {
     ([key]) =>
       key !== "subcategoryId" &&
       key !== "subCategoryId" &&
+      key !== "category" &&
+      key !== "subcategory" &&
+      key !== "search" &&
       key !== "brand" &&
       key !== "brandId" &&
       key !== "isFeatured" &&
       key !== "priceMin" &&
-      key !== "priceMax",
+      key !== "priceMax" &&
+      key !== "page" &&
+      key !== "limit" &&
+      key !== "source" &&
+      key !== "slot",
   );
+
+  // ── Resolve category slug/name → subcategory IDs ──────────────────────────
+  let categorySubCategoryIds: string[] | undefined;
+  if (!subCategoryId && categorySlug) {
+    // Look up category by slug (exact, case-insensitive) or by name (case-insensitive)
+    const category = await prisma.category.findFirst({
+      where: {
+        OR: [
+          { slug: { equals: categorySlug, mode: "insensitive" } },
+          { name: { equals: categorySlug, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (category) {
+      const subCategories = await prisma.subCategory.findMany({
+        where: { categoryId: category.id },
+        select: { id: true },
+      });
+      categorySubCategoryIds = subCategories.map((sc) => sc.id);
+
+      // If a subcategory name is also provided, narrow down further
+      if (subcategoryName && categorySubCategoryIds.length > 0) {
+        const matchingSubs = await prisma.subCategory.findMany({
+          where: {
+            categoryId: category.id,
+            name: { equals: subcategoryName, mode: "insensitive" },
+          },
+          select: { id: true },
+        });
+        if (matchingSubs.length > 0) {
+          categorySubCategoryIds = matchingSubs.map((sc) => sc.id);
+        }
+      }
+    } else {
+      // Category not found — return empty results
+      categorySubCategoryIds = [];
+    }
+  }
+
+  // Build the subcategory filter: prefer explicit subCategoryId, then category-derived IDs
+  const buildSubCategoryFilter = (): Prisma.ProductWhereInput => {
+    if (subCategoryId) {
+      return buildProductSubCategoryWhere(subCategoryId);
+    }
+    if (categorySubCategoryIds !== undefined) {
+      if (categorySubCategoryIds.length === 0) {
+        // No matching subcategories — force empty result
+        return { id: { equals: "___no_match___" } };
+      }
+      return {
+        OR: [
+          { subCategoryId: { in: categorySubCategoryIds } },
+          { productSubCategories: { some: { subCategoryId: { in: categorySubCategoryIds } } } },
+        ],
+      };
+    }
+    return {};
+  };
 
   const products = await prisma.product.findMany({
     where: {
-      ...buildProductSubCategoryWhere(subCategoryId),
+      ...buildSubCategoryFilter(),
       ...(brandSlug
         ? {
             brand: {
@@ -1732,6 +1890,12 @@ const getFilteredProductCount = async (query: ICatalogFilterQuery) => {
       ? {
           group: {
             subCategoryId,
+          },
+        }
+      : categorySubCategoryIds && categorySubCategoryIds.length > 0
+      ? {
+          group: {
+            subCategoryId: { in: categorySubCategoryIds },
           },
         }
       : undefined,
