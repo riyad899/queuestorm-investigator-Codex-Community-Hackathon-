@@ -37,12 +37,12 @@ export const auth = betterAuth({
     }),
     emailAndPassword:{
         enabled: true,
-        requireEmailVerification:true,
+        requireEmailVerification: false,
     },
       // ...(googleProvider ? { socialProviders: googleProvider } : {}),
        emailVerification:{
-        sendOnSignUp: true,
-        sendOnSignIn: true,
+        sendOnSignUp: false,
+        sendOnSignIn: false,
         autoSignInAfterVerification: true,
     },
 
