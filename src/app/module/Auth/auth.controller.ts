@@ -28,15 +28,12 @@ const getFrontendBaseUrl = (req: Request) => {
 };
 
 const register = catchAsync(async (req, res) => {
-  const { name, email, password, age, address, contact } = req.body;
+  const { name, email, password } = req.body;
   const result = await authService.register(
     {
       name,
       email,
       password,
-      age: age !== undefined ? Number(age) : undefined,
-      address,
-      contact,
     },
     req.headers
   );
@@ -91,22 +88,6 @@ const getMe = catchAsync(async (req, res) => {
   });
 });
 
-const getMyCustomerProfile = catchAsync(async (req, res) => {
-  const user = req.user;
-  if (!user) {
-    throw new AppError("Unauthorized access! User not found in request.", status.UNAUTHORIZED);
-  }
-
-  const result = await authService.getMyCustomerProfile(user.userId);
-
-  sendResponse(res, {
-    httpStatus: status.OK,
-    success: true,
-    message: "Customer profile retrieved successfully",
-    data: result,
-  });
-});
-
 const getRole = catchAsync(async (req, res) => {
   const user = req.user;
   if (!user) {
@@ -125,26 +106,6 @@ const verifyEmail = catchAsync(async (req: Request, res: Response) => {
   const { email, otp } = req.body;
   await authService.verifyEmail(email, otp);
   sendResponse(res, { httpStatus: status.OK, success: true, message: "Email verified successfully" });
-});
-
-const updateCustomer = catchAsync(async (req, res) => {
-  const id = Number(req.params.id);
-  if (Number.isNaN(id)) {
-    throw new AppError("Invalid customer id", status.BAD_REQUEST);
-  }
-  const user = req.user;
-  if (!user) {
-    throw new AppError("Unauthorized access! User not found in request.", status.UNAUTHORIZED);
-  }
-
-  const data = await authService.updateCustomerById(id, req.body, user);
-
-  sendResponse(res, {
-    httpStatus: status.OK,
-    success: true,
-    message: "Customer updated successfully",
-    data,
-  });
 });
 
 const getNewToken = catchAsync(async (req: Request, res: Response) => {
@@ -339,7 +300,7 @@ const requestPasswordResetOTP = catchAsync(async (req: Request, res: Response) =
 });
 
 export const AuthController = {
-  register, LoginUser, updateCustomer, getMe, getMyCustomerProfile, getRole, getNewToken, changePassword,
+  register, LoginUser, getMe, getRole, getNewToken, changePassword,
   logoutUser, verifyEmail, forgetPassword, resetPassword, googleLogin, googleLoginSuccess, handleOAuthError,
   requestEmailVerificationOTP, requestPasswordResetOTP,
 };

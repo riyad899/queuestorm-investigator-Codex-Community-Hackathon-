@@ -4,44 +4,6 @@ import status from "http-status";
 
 dotenv.config();
 
-const normalizeUrl = (value: string, fallbackProtocol: "http" | "https" = "https") => {
-    if (!value) {
-        return value;
-    }
-
-    if (/^https?:\/\//i.test(value)) {
-        return value;
-    }
-
-    const protocol = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(value) ? "http" : fallbackProtocol;
-
-    return `${protocol}://${value}`;
-};
-
-const getRenderExternalUrl = () => {
-    if (process.env.RENDER_EXTERNAL_URL) {
-        return process.env.RENDER_EXTERNAL_URL;
-    }
-
-    if (process.env.RENDER_EXTERNAL_HOSTNAME) {
-        return `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`;
-    }
-
-    return undefined;
-};
-
-const getVercelExternalUrl = () => {
-    if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-        return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-    }
-
-    if (process.env.VERCEL_URL) {
-        return `https://${process.env.VERCEL_URL}`;
-    }
-
-    return undefined;
-};
-
 interface EnvConfig {
     NODE_ENV: string;
     PORT: string;
@@ -62,28 +24,20 @@ interface EnvConfig {
         SMTP_PORT: string;
         SMTP_FROM: string;
     }
-    Google_Client_ID?: string;
-    Google_Client_Secret?: string;
-    Google_callbackURL?: string;
+    // Google_Client_ID?: string;
+    // Google_Client_Secret?: string;
+    // Google_callbackURL?: string;
 }
 
-const LoadEnvVarialbes = (): EnvConfig => {
-    const requiredEnvVars = [
-        "DATABASE_URL",
-        "BETTER_AUTH_SECRET",
-        "ACCESS_TOKEN_SECRET",
-        "REFRESH_TOKEN_SECRET",
-        "ACCESS_TOKEN_EXPIRES_IN",
-        "REFRESH_TOKEN_EXPIRES_IN",
-        "BETTER_AUTH_SESSION_EXPIRES_IN",
-        "BETTER_AUTH_SEASSION_UPDATE_AGE",
-    ];
-    requiredEnvVars.forEach((varName) => {
-        if (!process.env[varName]) {
-            throw new AppError(`Missing required environment variable: ${varName}`, status.INTERNAL_SERVER_ERROR);
-        }
-    });
+const requireEnv = (key: string): string => {
+    const value = process.env[key];
+    if (!value || value.trim() === "") {
+        throw new AppError(`Missing required environment variable: ${key}`, status.INTERNAL_SERVER_ERROR);
+    }
+    return value;
+};
 
+const LoadEnvVarialbes = (): EnvConfig => {
     const emailVars =
         process.env.EMAIL_SENDER_SMTP_USER &&
         process.env.EMAIL_SENDER_SMTP_PASS &&
@@ -99,27 +53,27 @@ const LoadEnvVarialbes = (): EnvConfig => {
             }
             : undefined;
 
-    const googleClientId = process.env.Google_Client_ID;
-    const googleClientSecret = process.env.Google_Client_Secret;
-    const googleCallbackURL = process.env.Google_callbackURL;
+    // const googleClientId = process.env.Google_Client_ID;
+    // const googleClientSecret = process.env.Google_Client_Secret;
+    // const googleCallbackURL = process.env.Google_callbackURL;
 
     return {
-        NODE_ENV: process.env.NODE_ENV ?? "production",
-        PORT: process.env.PORT ?? "8000",
-        DATABASE_URL: process.env.DATABASE_URL as string,
-        BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET as string,
-        BETTER_AUTH_URL: normalizeUrl(process.env.BETTER_AUTH_URL ?? getVercelExternalUrl() ?? getRenderExternalUrl() ?? "http://localhost:8000"),
-        ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET as string,
-        REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET as string,
-        ACCESS_TOKEN_EXPIRES_IN: process.env.ACCESS_TOKEN_EXPIRES_IN as string,
-        REFRESH_TOKEN_EXPIRES_IN: process.env.REFRESH_TOKEN_EXPIRES_IN as string,
-        FRONTEND_URL: normalizeUrl(process.env.FRONTEND_URL ?? getRenderExternalUrl() ?? "http://localhost:3000", "http"),
-        BETTER_AUTH_SESSION_EXPIRES_IN: process.env.BETTER_AUTH_SESSION_EXPIRES_IN as string,
-        BETTER_AUTH_SEASSION_UPDATE_AGE: process.env.BETTER_AUTH_SEASSION_UPDATE_AGE as string,
+        NODE_ENV: requireEnv("NODE_ENV"),
+        PORT: requireEnv("PORT"),
+        DATABASE_URL: requireEnv("DATABASE_URL"),
+        BETTER_AUTH_SECRET: requireEnv("BETTER_AUTH_SECRET"),
+        BETTER_AUTH_URL: requireEnv("BETTER_AUTH_URL"),
+        ACCESS_TOKEN_SECRET: requireEnv("ACCESS_TOKEN_SECRET"),
+        REFRESH_TOKEN_SECRET: requireEnv("REFRESH_TOKEN_SECRET"),
+        ACCESS_TOKEN_EXPIRES_IN: requireEnv("ACCESS_TOKEN_EXPIRES_IN"),
+        REFRESH_TOKEN_EXPIRES_IN: requireEnv("REFRESH_TOKEN_EXPIRES_IN"),
+        FRONTEND_URL: requireEnv("FRONTEND_URL"),
+        BETTER_AUTH_SESSION_EXPIRES_IN: requireEnv("BETTER_AUTH_SESSION_EXPIRES_IN"),
+        BETTER_AUTH_SEASSION_UPDATE_AGE: requireEnv("BETTER_AUTH_SEASSION_UPDATE_AGE"),
         EMAIL_SENDER: emailVars,
-        Google_Client_ID: googleClientId,
-        Google_Client_Secret: googleClientSecret,
-        Google_callbackURL: googleCallbackURL ? normalizeUrl(googleCallbackURL) : undefined,
+        // Google_Client_ID: googleClientId,
+        // Google_Client_Secret: googleClientSecret,
+        // Google_callbackURL: googleCallbackURL ? normalizeUrl(googleCallbackURL) : undefined,
     }
 }
 

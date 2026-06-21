@@ -9,24 +9,24 @@ const useSecureCookies = envVars.BETTER_AUTH_URL.toLowerCase().startsWith("https
 const authCookieSameSite = useSecureCookies ? "none" : "lax";
 const authCookieSecure = useSecureCookies;
 
-const googleProvider = envVars.Google_Client_ID && envVars.Google_Client_Secret
-    ? {
-        google: {
-            clientId: envVars.Google_Client_ID,
-            clientSecret: envVars.Google_Client_Secret,
-            mapProfileToUser: () => {
-                return {
-                    role: Role.CUSTOMER,
-                    status: userStatus.ACTIVE,
-                    needPasswordChange: false,
-                    emailVerified: true,
-                    isDeleted: false,
-                    deletedAt: null,
-                };
-            },
-        },
-    }
-    : undefined;
+// const googleProvider = envVars.Google_Client_ID && envVars.Google_Client_Secret
+//     ? {
+//         google: {
+//             clientId: envVars.Google_Client_ID,
+//             clientSecret: envVars.Google_Client_Secret,
+//             mapProfileToUser: () => {
+//                 return {
+//                     role: Role.USER,
+//                     status: userStatus.ACTIVE,
+//                     needPasswordChange: false,
+//                     emailVerified: true,
+//                     isDeleted: false,
+//                     deletedAt: null,
+//                 };
+//             },
+//         },
+//     }
+//     : undefined;
 
 
 export const auth = betterAuth({
@@ -39,7 +39,7 @@ export const auth = betterAuth({
         enabled: true,
         requireEmailVerification:true,
     },
-      ...(googleProvider ? { socialProviders: googleProvider } : {}),
+      // ...(googleProvider ? { socialProviders: googleProvider } : {}),
        emailVerification:{
         sendOnSignUp: true,
         sendOnSignIn: true,
@@ -52,7 +52,7 @@ export const auth = betterAuth({
         role: {
           type: "string",
             required: true,
-            defaultValue: Role.CUSTOMER,
+            defaultValue: Role.USER,
         },
         status: {
           type: "string",
@@ -93,8 +93,8 @@ export const auth = betterAuth({
                     return;
                    }
 
-                   if(user && user.role === Role.SUPER_ADMIN){
-                    console.log(`User with email ${email} is a super admin. Skipping sending verification OTP.`);
+                   if(user && user.role === Role.ADMIN){
+                    console.log(`User with email ${email} is an admin. Skipping sending verification OTP.`);
                     return;
                    }
 
@@ -134,9 +134,9 @@ export const auth = betterAuth({
             maxAge: 60 * 60 * 60 * 24, // 1 day in seconds
         }
     },
-    redirectURLs:{
-        signIn : `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success`,
-    },
+    // redirectURLs:{
+    //     signIn : `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success`,
+    // },
         trustedOrigins: [envVars.BETTER_AUTH_URL, envVars.FRONTEND_URL],
     advanced: {
         // disableCSRFCheck: true,

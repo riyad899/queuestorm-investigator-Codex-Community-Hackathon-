@@ -51,7 +51,7 @@ app.use("/api/auth", toNodeHandler(auth));
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
-    message: 'E-Commerce API is running',
+    message: 'API is Running ',
     version: '1.0.0',
     docs: '/api/v1',
   });

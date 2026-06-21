@@ -6,18 +6,15 @@ import {
 	forgetPasswordZodSchema,
 	loginUserZodSchema,
 	resetPasswordZodSchema,
-	registerCustomerZodSchema,
-	updateCustomerZodSchema,
+	registerUserZodSchema,
 	verifyEmailZodSchema,
 } from "./auth.validation.js";
 
 const router = Router();
 
-router.post("/register", validateZodSchema(registerCustomerZodSchema), AuthController.register);
+router.post("/register", validateZodSchema(registerUserZodSchema), AuthController.register);
 router.post("/login", validateZodSchema(loginUserZodSchema), AuthController.LoginUser);
 router.get("/get-me", checkAuth(), AuthController.getMe);
-router.get("/customer/profile", checkAuth(), AuthController.getMyCustomerProfile);
-router.patch("/customer/:id", checkAuth(), validateZodSchema(updateCustomerZodSchema), AuthController.updateCustomer);
 router.get("/role", checkAuth(), AuthController.getRole);
 router.post("/refresh-token", AuthController.getNewToken);
 router.post("/change-password", AuthController.changePassword);

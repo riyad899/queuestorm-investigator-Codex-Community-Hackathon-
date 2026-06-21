@@ -1,35 +1,11 @@
 enum Role {
-  STAFF
-  CUSTOMER
-    SUPER_ADMIN
+  USER
   ADMIN
 }
+
 enum userStatus {
-    ACTIVE
-    INACTIVE
-    DELETED
-    BLOCKED
-}
-
-enum GENDER {
-    MALE
-    FEMALE
-}
-
-enum DiscountType {
-  PERCENT
-  FIXED
-}
-
-enum PaymentStatus {
-  PENDING
-  PAID
-}
-
-enum DeliveryStatus {
-  PENDING
-  PROCESSING
-  SHIPPED
-  DELIVERED
-  CANCELED
+  ACTIVE
+  INACTIVE
+  DELETED
+  BLOCKED
 }
