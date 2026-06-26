@@ -11,7 +11,7 @@ dotenv.config();
 interface EnvConfig {
     NODE_ENV: string;
     PORT: string;
-    FRONTEND_URL: string;
+    // FRONTEND_URL: string;
     OPENROUTER_API_KEY: string;
     OPENROUTER_LLM_MODEL: string;
     OPENROUTER_BASE_URL: string;
@@ -29,7 +29,7 @@ const LoadEnvVariables = (): EnvConfig => {
     return {
         NODE_ENV: requireEnv("NODE_ENV"),
         PORT: requireEnv("PORT"),
-        FRONTEND_URL: requireEnv("FRONTEND_URL"),
+        // FRONTEND_URL: requireEnv("FRONTEND_URL"),
         OPENROUTER_API_KEY: requireEnv("OPENROUTER_API_KEY"),
         OPENROUTER_LLM_MODEL: requireEnv("OPENROUTER_LLM_MODEL"),
         OPENROUTER_BASE_URL:

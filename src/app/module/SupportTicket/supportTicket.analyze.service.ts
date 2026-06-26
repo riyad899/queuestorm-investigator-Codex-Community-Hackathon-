@@ -391,7 +391,7 @@ const analyzeTicket = async (
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${envVars.OPENROUTER_API_KEY}`,
-            "HTTP-Referer": envVars.FRONTEND_URL || "http://localhost:3000",
+            // "HTTP-Referer": envVars.FRONTEND_URL || "http://localhost:3000",
             "X-Title": "Support Ticket Analyzer",
           },
           body: JSON.stringify(requestBody),
