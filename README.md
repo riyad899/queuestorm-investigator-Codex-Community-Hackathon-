@@ -154,11 +154,7 @@ The AI receives the full ticket context:
 If the primary model is rate-limited (429), the system automatically tries:
 
 1. `google/gemma-4-31b-it:free` (primary)
-2. `meta-llama/llama-3.3-70b-instruct:free`
-3. `google/gemma-3-27b-it:free`
-4. `mistralai/mistral-small-3.1-24b-instruct:free`
 
-Each model gets 2 retry attempts with backoff before moving to the next.
 
 ---
 
@@ -418,7 +414,7 @@ npm start
 | **Language** | TypeScript 5.9 |
 | **Validation** | Zod 4 |
 | **AI Provider** | OpenRouter API |
-| **LLM Models** | Gemma 4, LLaMA 3.3, Mistral (free tier) |
+| **LLM Models** | Gemma 4 |
 | **Deployment** | Vercel (Serverless) |
 | **Dev Tools** | tsx, ESLint, typescript-eslint |
 
