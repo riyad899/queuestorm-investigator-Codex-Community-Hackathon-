@@ -26,14 +26,27 @@ RULES:
    - Never ask the customer for OTP, PIN, password, CVV, card number, or any secret.
    - Mask any secrets found in the complaint as "***REDACTED***".
 
-3. NO PROMISES:
-   - Never promise a refund, reversal, compensation, or any concrete outcome.
-   - Use language like "we will investigate", "our team will review".
+3. SAFETY — NO PROMISES (THIS IS CRITICAL):
+   - NEVER promise or suggest a refund, reversal, recovery, reimbursement, or account restoration.
+   - NEVER use words like "initiate recovery", "process a refund", "reverse the transaction",
+     "restore your account", "recover your funds", or "unblock your account".
+   - Instead, use ONLY safe operational language such as:
+     * "We will investigate this matter."
+     * "Our team will review your case."
+     * "The case has been escalated for investigation."
+     * "We have noted your concern and will follow up."
+   - In "recommended_next_action", use language like:
+     * "Verify the transaction details and escalate to the dispute resolution team for investigation."
+     * "Review the transaction and follow the official dispute handling process."
+   - In "customer_reply", use language like:
+     * "We have received your complaint. Our team will review the case and follow up with you."
+     * "Your concern has been noted. If any eligible action is applicable, it will be processed through the official dispute resolution process."
 
 4. OUTPUT FORMAT:
    - Your entire response must be ONLY a valid JSON object.
    - Do NOT use markdown. Do NOT use code fences. Do NOT add any text before or after the JSON.
    - Start your response with { and end with }.
+   - All enum values must be lowercase_snake_case exactly as listed.
    - All fields below are REQUIRED.
 
    Schema:
@@ -52,17 +65,26 @@ RULES:
      "reason_codes": string array
    }
 
-   Use these EXACT enum values. Examples:
-   - case_type: "wrong_transfer" (not "Wrong Transfer")
-   - severity: "high" (not "HIGH")
-   - department: "dispute_resolution" (not "Dispute Resolution")
-   - evidence_verdict: "consistent" (not "Consistent")
+   IMPORTANT: All enum values MUST be lowercase with underscores.
+   CORRECT: "wrong_transfer", "high", "dispute_resolution", "consistent"
+   WRONG:   "Wrong Transfer", "HIGH", "Dispute Resolution", "Consistent"
 
 5. REASONING:
    - Compare the complaint against each transaction in the history.
    - If a transaction matches by amount/type/status, set relevant_transaction_id to its id and evidence_verdict to "consistent".
    - If no match, use "insufficient_data" and set human_review_required to true.
    - Set human_review_required to true when confidence < 0.7 or case involves fraud/phishing.
+
+6. SEVERITY RULES (follow this mapping):
+   - wrong_transfer → "high" (financial impact requiring dispute)
+   - payment_failed → "medium"
+   - refund_request → "medium"
+   - duplicate_payment → "medium"
+   - merchant_settlement_delay → "medium"
+   - agent_cash_in_issue → "high"
+   - phishing_or_social_engineering → "critical"
+   - other → "low"
+   Only use "critical" for fraud, phishing, account compromise, or similar high-risk cases.
 `;
 
 // =====================================================================
@@ -180,12 +202,24 @@ const normalizeEnumValue = (
 ): string | undefined => {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
-  // Try exact match, then lowercase, then underscore-converted
-  return (
-    map.get(trimmed) ??
-    map.get(trimmed.toLowerCase()) ??
-    map.get(trimmed.replace(/[\s-]+/g, "_").toLowerCase())
-  );
+  // Try exact match first
+  const direct = map.get(trimmed);
+  if (direct) return direct;
+  // Try lowercase
+  const lower = map.get(trimmed.toLowerCase());
+  if (lower) return lower;
+  // Convert spaces/dashes to underscores and try
+  const underscored = trimmed.replace(/[\s-]+/g, "_").toLowerCase();
+  const fromUnderscored = map.get(underscored);
+  if (fromUnderscored) return fromUnderscored;
+  // Handle mixed case like "Wrong_transfer", "WRONG_TRANSFER" by
+  // splitting on non-alphanumeric, lowercasing, and joining with underscores
+  const fullyNormalized = trimmed
+    .replace(/([a-z])([A-Z])/g, "$1_$2") // camelCase split
+    .replace(/[^a-zA-Z0-9]+/g, "_")     // non-alphanum → underscore
+    .toLowerCase()
+    .replace(/^_+|_+$/g, "");            // trim leading/trailing underscores
+  return map.get(fullyNormalized);
 };
 
 // =====================================================================
@@ -214,7 +248,7 @@ const buildFallbackResponse = (
       : isWrongTransfer
         ? "wrong_transfer"
         : "other",
-    severity: isPhishing ? "critical" : "medium",
+    severity: isPhishing ? "critical" : isWrongTransfer ? "high" : "medium",
     department: isPhishing
       ? "fraud_risk"
       : isWrongTransfer
@@ -237,11 +271,21 @@ const buildUserPrompt = (payload: AnalyzeTicketInput): string => {
   const historyJson = JSON.stringify(payload.transaction_history ?? [], null, 2);
   return `Analyze the following support ticket. Respond with ONLY a JSON object. No markdown, no explanation.
 
-Allowed enum values (use EXACTLY these strings):
+Allowed enum values (use EXACTLY these lowercase_snake_case strings):
 - case_type: ${caseTypeEnum.options.join(", ")}
 - department: ${departmentEnum.options.join(", ")}
 - evidence_verdict: ${evidenceVerdictEnum.options.join(", ")}
 - severity: ${severityEnum.options.join(", ")}
+
+Severity mapping:
+- wrong_transfer → "high"
+- payment_failed → "medium"
+- refund_request → "medium"
+- duplicate_payment → "medium"
+- merchant_settlement_delay → "medium"
+- agent_cash_in_issue → "high"
+- phishing_or_social_engineering → "critical"
+- other → "low"
 
 TICKET:
 ticket_id: ${safeStr(payload.ticket_id) || "TKT-" + Date.now()}
@@ -256,7 +300,8 @@ ${historyJson || "[]"}
 Instructions:
 - Match complaint against transactions by amount/type/status.
 - If a transaction matches, set relevant_transaction_id to that transaction's transaction_id and evidence_verdict to "consistent".
-- Never promise refunds. Use "we will investigate".
+- NEVER promise refunds, reversals, recovery, or reimbursement.
+- Use safe language: "we will investigate", "our team will review", "the case has been escalated".
 - Return ONLY the JSON object, nothing else.`;
 };
 
@@ -308,52 +353,100 @@ const analyzeTicket = async (
 ): Promise<AnalyzeTicketResponse> => {
   const userPrompt = buildUserPrompt(payload);
 
-  // Build the request body — do NOT include response_format for models
-  // that may not support it (free-tier models often don't).
-  const requestBody: Record<string, unknown> = {
-    model: envVars.OPENROUTER_LLM_MODEL,
-    temperature: 0,
-    top_p: 0.1,
-    max_tokens: 1024,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: userPrompt },
-    ],
-  };
+  // ---- Model fallback chain: if the primary model is rate-limited, try alternatives ----
+  const FALLBACK_MODELS = [
+    envVars.OPENROUTER_LLM_MODEL,
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "google/gemma-3-27b-it:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
+  ];
 
-  console.log("===== OPENROUTER REQUEST =====");
-  console.log("Model:", envVars.OPENROUTER_LLM_MODEL);
-  console.log("URL:", `${envVars.OPENROUTER_BASE_URL}/chat/completions`);
-  console.log("Messages count:", (requestBody.messages as unknown[]).length);
-  console.log("===== END OPENROUTER REQUEST =====");
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: userPrompt },
+  ];
 
-  // ---- Call the LLM ----
-  let res: Response;
-  try {
-    res = await fetch(`${envVars.OPENROUTER_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${envVars.OPENROUTER_API_KEY}`,
-        "HTTP-Referer": envVars.FRONTEND_URL || "http://localhost:3000",
-        "X-Title": "Support Ticket Analyzer",
-      },
-      body: JSON.stringify(requestBody),
-    });
-  } catch (fetchError) {
-    console.error("===== LLM FETCH ERROR =====");
-    console.error(fetchError);
-    return buildFallbackResponse(payload, `LLM fetch error: ${String(fetchError)}`);
+  let res: Response | null = null;
+  let rawResponseText = "";
+  let usedModel = envVars.OPENROUTER_LLM_MODEL;
+
+  for (const model of FALLBACK_MODELS) {
+    usedModel = model;
+
+    const requestBody = {
+      model,
+      temperature: 0,
+      top_p: 0.1,
+      max_tokens: 1024,
+      messages,
+    };
+
+    console.log(`===== OPENROUTER REQUEST (model: ${model}) =====`);
+
+    // Retry up to 2 times per model for transient errors
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        res = await fetch(`${envVars.OPENROUTER_BASE_URL}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${envVars.OPENROUTER_API_KEY}`,
+            "HTTP-Referer": envVars.FRONTEND_URL || "http://localhost:3000",
+            "X-Title": "Support Ticket Analyzer",
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } catch (fetchError) {
+        console.error(`[fetch error] Model ${model}, attempt ${attempt}:`, fetchError);
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 2000));
+          continue;
+        }
+        res = null;
+        break;
+      }
+
+      rawResponseText = await res.text().catch(() => "");
+      console.log(`[${model}] Status: ${res.status} (attempt ${attempt})`);
+
+      // Rate-limited — retry once then move to next model
+      if (res.status === 429) {
+        if (attempt < 2) {
+          console.log(`[retry] Rate limited. Waiting 3s...`);
+          await new Promise((r) => setTimeout(r, 3000));
+          continue;
+        }
+        console.log(`[model-fallback] ${model} is rate-limited, trying next model...`);
+        res = null; // mark as failed, try next model
+        break;
+      }
+
+      // Server error — retry once then move to next model
+      if (res.status === 502 || res.status === 503) {
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 2000));
+          continue;
+        }
+        console.log(`[model-fallback] ${model} server error ${res.status}, trying next model...`);
+        res = null;
+        break;
+      }
+
+      break; // Got a non-retryable response (success or other error)
+    }
+
+    if (res && res.ok) {
+      console.log(`[model-fallback] Success with model: ${usedModel}`);
+      break; // We have a successful response
+    }
   }
 
-  console.log("===== OPENROUTER HTTP STATUS =====");
-  console.log(`Status: ${res.status} ${res.statusText}`);
-  console.log("===== END HTTP STATUS =====");
-
-  // ---- Read raw response text first (so we can log it regardless) ----
-  const rawResponseText = await res.text().catch(() => "");
+  if (!res) {
+    return buildFallbackResponse(payload, "LLM call failed: all models rate-limited or unavailable");
+  }
 
   console.log("===== RAW OPENROUTER RESPONSE =====");
+  console.log(`Model used: ${usedModel}`);
   console.log(rawResponseText);
   console.log("===== END RAW OPENROUTER RESPONSE =====");
 
@@ -519,6 +612,52 @@ const analyzeTicket = async (
   }
 
   const out = validation.data;
+
+  // ---- Post-validation: enforce correct severity per case_type ----
+  const SEVERITY_BY_CASE: Record<string, string> = {
+    wrong_transfer: "high",
+    payment_failed: "medium",
+    refund_request: "medium",
+    duplicate_payment: "medium",
+    merchant_settlement_delay: "medium",
+    agent_cash_in_issue: "high",
+    phishing_or_social_engineering: "critical",
+    other: "low",
+  };
+  const expectedSeverity = SEVERITY_BY_CASE[out.case_type];
+  if (expectedSeverity && out.severity !== expectedSeverity) {
+    console.log(`[post-validation] Correcting severity: "${out.severity}" → "${expectedSeverity}" (based on case_type "${out.case_type}")`);
+    (out as Record<string, unknown>).severity = expectedSeverity;
+  }
+
+  // ---- Post-validation: scrub unsafe promises from text fields ----
+  const UNSAFE_PATTERNS = [
+    /\binitiat\w*\s+(the\s+)?\w*\s*recover\w*/gi,
+    /\bprocess\s+(a\s+)?refund\w*/gi,
+    /\brevers\w+\s+(the\s+)?transaction\w*/gi,
+    /\brecover\s+(your\s+)?fund\w*/gi,
+    /\brestore\s+(your\s+)?account\w*/gi,
+    /\bunblock\s+(your\s+)?account\w*/gi,
+    /\brefund\s+(will\s+be|has\s+been|is\s+being)\s+processed\w*/gi,
+    /\bwe\s+will\s+(refund|reverse|recover|reimburse|restore|unblock)\b/gi,
+    /\byou\s+will\s+(receive|get)\s+(a\s+)?(refund|reversal|reimbursement)\b/gi,
+  ];
+  const SAFE_REPLACEMENTS: Record<string, string> = {
+    recommended_next_action: "Verify the transaction details and escalate the case to the dispute resolution team for investigation.",
+    customer_reply: "We have received your complaint regarding this transaction. Our team will review the case. If any eligible action is applicable, it will be processed through the official dispute resolution process.",
+    agent_summary: out.agent_summary, // keep original unless unsafe
+  };
+
+  for (const field of ["agent_summary", "recommended_next_action", "customer_reply"] as const) {
+    const text = out[field];
+    const hasUnsafe = UNSAFE_PATTERNS.some((p) => p.test(text));
+    // Reset regex lastIndex after test
+    UNSAFE_PATTERNS.forEach((p) => (p.lastIndex = 0));
+    if (hasUnsafe) {
+      console.log(`[safety] Unsafe language detected in "${field}", replacing with safe text.`);
+      (out as Record<string, unknown>)[field] = SAFE_REPLACEMENTS[field];
+    }
+  }
 
   // Defensive: force human review when confidence is low OR case is risky
   if (out.confidence < 0.7) out.human_review_required = true;
