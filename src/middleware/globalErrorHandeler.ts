@@ -6,31 +6,7 @@ import { IError, IErrorResponse } from "../app/interfaces/globalError.interface.
 import { handleZodErrors } from "../app/errorHelpers/handleZodErrors.js";
 import AppError from "../app/errorHelpers/appError.js";
 
-const isDatabaseFailure = (err: any) => {
-  const message = typeof err?.message === "string" ? err.message : "";
-  const code = typeof err?.code === "string" ? err.code : "";
-
-  return (
-    code.startsWith("P1") ||
-    /can't reach database server|unable to start a transaction|transaction api error|prisma/i.test(message)
-  );
-};
-
-export const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-  const databaseError = isDatabaseFailure(err);
-
-  if (databaseError) {
-    console.error("[db][error] request failed", {
-      method: req.method,
-      url: req.originalUrl,
-      code: err?.code,
-      message: err?.message,
-      meta: err?.meta,
-      cause: err?.cause,
-      stack: err?.stack,
-    });
-  }
-
+export const globalErrorHandler = (err: any, req: Request, res: Response, _next: NextFunction) => {
   console.error("[error] request failed", {
     method: req.method,
     url: req.originalUrl,
@@ -62,17 +38,17 @@ export const globalErrorHandler = (err: any, req: Request, res: Response, next: 
     stack = err.stack;
     errorSource = [
       {
-        path: databaseError ? "database" : "app",
+        path: "app",
         message: err.message || "Error",
       },
     ];
   } else if (err instanceof Error) {
-    statusCode = databaseError ? status.SERVICE_UNAVAILABLE : status.BAD_REQUEST;
+    statusCode = status.BAD_REQUEST;
     message = err.message || "Bad Request";
     stack = err.stack;
     errorSource = [
       {
-        path: databaseError ? "database" : "app",
+        path: "app",
         message: err.message || "Error",
       },
     ];

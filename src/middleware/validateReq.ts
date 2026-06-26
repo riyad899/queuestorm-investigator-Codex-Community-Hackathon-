@@ -24,10 +24,19 @@ export const validateZodSchema = (zodSchema: z.ZodSchema)=>{
     }
 
     const data = validationResult.data as any;
+    // Express 5 made req.query and req.params read-only (they are getter-only).
+    // We mutate the existing objects in place rather than reassigning them.
     if (data?.body !== undefined || data?.params !== undefined || data?.query !== undefined) {
       if (data.body !== undefined) req.body = data.body;
-      if (data.params !== undefined) req.params = data.params;
-      if (data.query !== undefined) req.query = data.query;
+      if (data.params !== undefined) {
+        // Replace keys on the existing params object
+        for (const key of Object.keys(req.params)) delete req.params[key];
+        Object.assign(req.params as any, data.params);
+      }
+      if (data.query !== undefined) {
+        for (const key of Object.keys(req.query)) delete (req.query as any)[key];
+        Object.assign(req.query as any, data.query);
+      }
     } else {
       req.body = data;
     }
